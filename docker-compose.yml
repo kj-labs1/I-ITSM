@@ -1,0 +1,47 @@
+# =============================================================================
+# I-ITSM — Docker Compose (Development)
+# =============================================================================
+# Usage:
+#   docker compose up -d        # start all services
+#   docker compose logs -f      # tail logs
+#   docker compose down -v      # stop and remove volumes
+# =============================================================================
+
+services:
+  # ── PostgreSQL 16 ──────────────────────────────────────────────────────────
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: iitsm
+      POSTGRES_PASSWORD: iitsm
+      POSTGRES_DB: iitsm
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iitsm"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── FastAPI Backend ────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - ./backend/.env
+    environment:
+      # Override DATABASE_URL to point at the compose 'db' service
+      DATABASE_URL: "postgresql+psycopg://iitsm:iitsm@db:5432/iitsm"
+
+volumes:
+  pgdata:
