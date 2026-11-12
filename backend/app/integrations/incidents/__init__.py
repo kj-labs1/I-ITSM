@@ -1,0 +1,1 @@
+"""Incident module integration package."""
