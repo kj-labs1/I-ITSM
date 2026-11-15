@@ -98,7 +98,7 @@ class Technician:
         if self.has_skill(skill_name):
             raise ValueError(f"Technician already has skill: {skill_name}")
         skill = TechnicianSkill(
-            technician_id=self.user_id,
+            technician_id=self.id,
             skill_name=skill_name,
             _proficiency_level=proficiency_level,
         )

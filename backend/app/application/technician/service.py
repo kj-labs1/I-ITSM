@@ -115,6 +115,42 @@ class TechnicianProfileService:
             await self._attach_workload(t)
         return techs
 
+    async def update_technician(
+        self,
+        technician_id: UUID,
+        experience_years: int | None = None,
+        max_capacity: int | None = None,
+    ) -> Technician:
+        """
+        Update technician operational parameters.
+
+        Validates:
+        - experience_years is non-negative (if supplied).
+        - max_capacity is at least 1 (if supplied).
+        Updates only the fields that are supplied, leaving the other unchanged.
+        """
+        tech = await self.get_technician(technician_id)
+
+        if experience_years is not None:
+            if experience_years < 0:
+                raise BusinessRuleError(
+                    "Experience years cannot be negative.",
+                    error_code="INVALID_EXPERIENCE_YEARS",
+                )
+            tech.experience_years = experience_years
+
+        if max_capacity is not None:
+            if max_capacity < 1:
+                raise BusinessRuleError(
+                    "Max capacity must be at least 1.",
+                    error_code="INVALID_MAX_CAPACITY",
+                )
+            tech.max_capacity = max_capacity
+
+        updated = await self.repository.update(tech)
+        await self._attach_workload(updated)
+        return updated
+
     async def update_availability(
         self,
         technician_id: UUID,

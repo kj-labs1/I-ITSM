@@ -193,14 +193,11 @@ async def update_technician(
     payload: TechnicianUpdateRequest,
     service: TechnicianProfileService = Depends(get_technician_service),
 ) -> TechnicianResponse:
-    tech = await service.get_technician(technician_id)
-    if payload.experience_years is not None:
-        tech.experience_years = payload.experience_years
-    if payload.max_capacity is not None:
-        tech.max_capacity = payload.max_capacity
-
-    updated = await service.repository.update(tech)
-    await service._attach_workload(updated)
+    updated = await service.update_technician(
+        technician_id=technician_id,
+        experience_years=payload.experience_years,
+        max_capacity=payload.max_capacity,
+    )
     return _to_technician_response(updated)
 
 
