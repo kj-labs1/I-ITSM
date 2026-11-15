@@ -235,3 +235,38 @@ class TestUpdateTechnicianService:
         assert len(updated.skills) == 2
         skill_names = {s.skill_name for s in updated.skills}
         assert skill_names == {"NETWORK", "DATABASE"}
+
+    @pytest.mark.asyncio
+    async def test_add_or_update_skill_proficiency_persistence(
+        self,
+        tech_service: TechnicianProfileService,
+    ):
+        """Updating existing skill proficiency via service persists through database reload."""
+        tech = await tech_service.create_technician(
+            user_id=uuid4(),
+            initial_skills=[("NETWORK", 2)],
+        )
+        assert tech.skills[0].proficiency_level == 2
+
+        # Update proficiency to 5
+        updated = await tech_service.add_or_update_skill(tech.id, "NETWORK", 5)
+        assert updated.get_skill_proficiency("NETWORK") == 5
+
+        # Reload from database to verify persistence
+        reloaded = await tech_service.get_technician(tech.id)
+        assert reloaded.get_skill_proficiency("NETWORK") == 5
+        assert len(reloaded.skills) == 1
+
+    @pytest.mark.asyncio
+    async def test_add_or_update_skill_rejects_invalid_proficiency(
+        self,
+        tech_service: TechnicianProfileService,
+    ):
+        """Invalid proficiency levels are rejected with BusinessRuleError."""
+        tech = await tech_service.create_technician(user_id=uuid4())
+
+        with pytest.raises(BusinessRuleError, match="Proficiency level must be between 1 and 5"):
+            await tech_service.add_or_update_skill(tech.id, "NETWORK", 0)
+
+        with pytest.raises(BusinessRuleError, match="Proficiency level must be between 1 and 5"):
+            await tech_service.add_or_update_skill(tech.id, "NETWORK", 6)

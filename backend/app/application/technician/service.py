@@ -124,28 +124,28 @@ class TechnicianProfileService:
         """
         Update technician operational parameters.
 
-        Validates:
-        - experience_years is non-negative (if supplied).
-        - max_capacity is at least 1 (if supplied).
+        Delegates to the domain entity method `update_operational_parameters()`
+        to enforce domain invariants (experience_years >= 0, max_capacity >= 1).
         Updates only the fields that are supplied, leaving the other unchanged.
         """
         tech = await self.get_technician(technician_id)
 
-        if experience_years is not None:
-            if experience_years < 0:
+        try:
+            tech.update_operational_parameters(
+                experience_years=experience_years,
+                max_capacity=max_capacity,
+            )
+        except ValueError as err:
+            err_msg = str(err)
+            if "Experience years" in err_msg:
                 raise BusinessRuleError(
-                    "Experience years cannot be negative.",
+                    err_msg,
                     error_code="INVALID_EXPERIENCE_YEARS",
-                )
-            tech.experience_years = experience_years
-
-        if max_capacity is not None:
-            if max_capacity < 1:
-                raise BusinessRuleError(
-                    "Max capacity must be at least 1.",
-                    error_code="INVALID_MAX_CAPACITY",
-                )
-            tech.max_capacity = max_capacity
+                ) from err
+            raise BusinessRuleError(
+                err_msg,
+                error_code="INVALID_MAX_CAPACITY",
+            ) from err
 
         updated = await self.repository.update(tech)
         await self._attach_workload(updated)
@@ -195,14 +195,19 @@ class TechnicianProfileService:
         skill_name: str,
         proficiency_level: int,
     ) -> Technician:
-        """Add a new skill or update proficiency of an existing skill."""
+        """Add a new skill or update proficiency of an existing skill via aggregate methods."""
         tech = await self.get_technician(technician_id)
 
-        existing_skill = tech.get_skill(skill_name)
-        if existing_skill is not None:
-            existing_skill.update_proficiency(proficiency_level)
-        else:
-            tech.add_skill(skill_name, proficiency_level)
+        try:
+            if tech.has_skill(skill_name):
+                tech.update_skill_proficiency(skill_name, proficiency_level)
+            else:
+                tech.add_skill(skill_name, proficiency_level)
+        except ValueError as err:
+            raise BusinessRuleError(
+                str(err),
+                error_code="INVALID_SKILL_DATA",
+            ) from err
 
         updated = await self.repository.update(tech)
         await self._attach_workload(updated)

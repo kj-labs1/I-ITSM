@@ -52,3 +52,19 @@ class TechnicianSkill:
     def matches_skill(self, required_skill: str) -> bool:
         """Check if this skill matches the required skill (case-insensitive)."""
         return self.skill_name.upper() == required_skill.upper()
+
+    def clone(self) -> TechnicianSkill:
+        """Return an independent, detached clone of this skill entity.
+
+        Encapsulation: Guarantees that passing or returning skill instances
+        outside the Technician aggregate boundary cannot mutate the aggregate's
+        internal state.
+        """
+        return TechnicianSkill(
+            technician_id=self.technician_id,
+            skill_name=self.skill_name,
+            _proficiency_level=self._proficiency_level,
+            id=self.id,
+            created_at=self.created_at,
+            updated_at=self.updated_at,
+        )
