@@ -16,7 +16,15 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
-from app.shared.enums import AvailabilityStatus
+from app.shared.enums import (
+    AvailabilityStatus,
+    IncidentCategory,
+    IncidentStatus,
+    Priority,
+)
+
+
+
 
 
 class BaseDTO(BaseModel):
@@ -26,6 +34,132 @@ class BaseDTO(BaseModel):
         alias_generator=to_camel,
         populate_by_name=True,
         from_attributes=True,
+    )
+
+# ============================================================
+# MEMBER 2 — INCIDENT MANAGEMENT SCHEMAS
+# ============================================================
+
+
+class IncidentCreateRequest(BaseDTO):
+    """Request DTO for creating a new incident."""
+
+    service_id: UUID
+
+    category: IncidentCategory
+
+    required_skill: str = Field(
+        min_length=1,
+        max_length=100,
+    )
+
+    description: str = Field(
+        min_length=1,
+        max_length=5000,
+    )
+
+    impact: int = Field(
+        ge=1,
+        le=5,
+    )
+
+    urgency: int = Field(
+        ge=1,
+        le=5,
+    )
+
+    # Temporary integration inputs until M1's service catalogue
+    # provides business criticality and required skill server-side.
+    business_criticality: int = Field(
+        ge=1,
+        le=5,
+    )
+
+
+class IncidentUpdateRequest(BaseDTO):
+    """Request DTO for updating permitted incident fields."""
+
+    description: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=5000,
+    )
+
+    impact: int | None = Field(
+        default=None,
+        ge=1,
+        le=5,
+    )
+
+    urgency: int | None = Field(
+        default=None,
+        ge=1,
+        le=5,
+    )
+
+
+class IncidentStatusUpdateRequest(BaseDTO):
+    """Request DTO for changing incident lifecycle status."""
+
+    status: IncidentStatus
+
+    resolution_details: str | None = Field(
+        default=None,
+        max_length=5000,
+    )
+
+
+class IncidentCommentCreateRequest(BaseDTO):
+    """Request DTO for adding an incident comment."""
+
+    content: str = Field(
+        min_length=1,
+        max_length=5000,
+    )
+
+
+class IncidentCommentResponse(BaseDTO):
+    """Response DTO for an incident comment."""
+
+    id: UUID
+    incident_id: UUID
+    author_id: UUID
+    content: str
+    created_at: datetime
+
+
+class IncidentResponse(BaseDTO):
+    """Standard incident response DTO."""
+
+    id: UUID
+    incident_code: str
+
+    reporter_id: UUID
+    service_id: UUID
+
+    category: IncidentCategory
+    required_skill: str
+    description: str
+
+    impact: int
+    urgency: int
+    business_criticality: int
+
+    priority: Priority
+    status: IncidentStatus
+
+    assigned_technician_id: UUID | None
+    resolution_details: str | None
+
+    created_at: datetime
+    updated_at: datetime
+
+
+class IncidentDetailsResponse(IncidentResponse):
+    """Detailed incident response including comments."""
+
+    comments: list[IncidentCommentResponse] = Field(
+        default_factory=list
     )
 
 
@@ -151,3 +285,15 @@ class AssignTechnicianResponse(BaseDTO):
     status: str
     strategy_used: str
     assigned_by: UUID
+
+class PotentialDuplicateResponse(BaseDTO):
+    """Read representation of a potential duplicate incident."""
+
+    incident_id: UUID
+    incident_code: str
+    category: IncidentCategory
+    priority: Priority
+    status: IncidentStatus
+    created_at: datetime
+    similarity_score: float = Field(ge=0.0, le=1.0)
+    explanation: str

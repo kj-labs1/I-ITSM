@@ -14,12 +14,14 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.api.v1 import assignment, technicians
+from app.api.v1 import incidents
 
 router = APIRouter()
 
 # ── Module 3: Technicians & Assignment ────────────────────────────────────────
 router.include_router(technicians.router)
 router.include_router(assignment.router)
+router.include_router(incidents.router)
 
 # ── Extension Points for Parallel Team Development ───────────────────────────
 #
