@@ -2,6 +2,7 @@
 
 **Prefix:** `/api/v1`  
 **Standard Headers:**
+
 - `Content-Type: application/json`
 - `Authorization: Bearer <jwt-token>` (for protected routes)
 
@@ -10,6 +11,7 @@
 ## 1. Technician Management Endpoints (Module 3)
 
 ### 1.1 List Technicians
+
 - **Method & Path:** `GET /api/v1/technicians`
 - **Query Parameters:**
   - `skip` (int, default `0`)
@@ -42,6 +44,7 @@
   ```
 
 ### 1.2 Create Technician Profile
+
 - **Method & Path:** `POST /api/v1/technicians`
 - **Request Body:**
   ```json
@@ -61,11 +64,13 @@
 - **Response 409 Conflict:** If technician profile already exists for `userId`.
 
 ### 1.3 Get Technician Details
+
 - **Method & Path:** `GET /api/v1/technicians/{technician_id}`
 - **Response 200 OK:** Returns `TechnicianResponse`.
 - **Response 404 Not Found:** If technician does not exist.
 
 ### 1.4 Update Technician Parameters
+
 - **Method & Path:** `PATCH /api/v1/technicians/{technician_id}`
 - **Request Body:**
   ```json
@@ -77,6 +82,7 @@
 - **Response 200 OK:** Returns updated `TechnicianResponse`.
 
 ### 1.5 Update Availability Status
+
 - **Method & Path:** `PATCH /api/v1/technicians/{technician_id}/availability`
 - **Request Body:**
   ```json
@@ -87,6 +93,7 @@
 - **Response 200 OK:** Returns updated `TechnicianResponse`.
 
 ### 1.6 Skills Management
+
 - `GET /api/v1/technicians/{technician_id}/skills`: Returns `list[SkillResponse]`.
 - `POST /api/v1/technicians/{technician_id}/skills`: Creates/updates skill proficiency.
 - `DELETE /api/v1/technicians/{technician_id}/skills/{skill_name}`: Removes a skill.
@@ -158,3 +165,125 @@
     - `SKILL_MISMATCH`: Technician lacks incident's required skill.
     - `CAPACITY_EXCEEDED`: Technician active incidents $\ge$ max capacity.
     - `INVALID_ASSIGNMENT`: Incident is in an unassignable lifecycle state.
+
+---
+
+## 4. Platform & Identity Endpoints (Module 1)
+
+All protected endpoints require `Authorization: Bearer <jwt-token>`.
+
+### 4.1 Authentication
+
+| Method | Endpoint                | Access        | Purpose                           |
+| ------ | ----------------------- | ------------- | --------------------------------- |
+| POST   | `/api/v1/auth/register` | Public        | Register an Employee account      |
+| POST   | `/api/v1/auth/login`    | Public        | Authenticate and obtain a JWT     |
+| GET    | `/api/v1/auth/me`       | Authenticated | Return the current user's profile |
+
+Registration request:
+
+```json
+{
+  "username": "jdoe",
+  "email": "jdoe@example.com",
+  "fullName": "Jane Doe",
+  "password": "password123"
+}
+```
+
+Registration creates an `EMPLOYEE` account. Passwords are stored as bcrypt hashes.
+
+Login accepts form-encoded `username` and `password` fields. The username field also accepts an email address.
+
+Login response:
+
+```json
+{
+  "accessToken": "<jwt>",
+  "tokenType": "bearer"
+}
+```
+
+### 4.2 User Management
+
+Administrator access is required for these endpoints.
+
+| Method | Endpoint                  | Purpose                                 |
+| ------ | ------------------------- | --------------------------------------- |
+| GET    | `/api/v1/users`           | List users                              |
+| GET    | `/api/v1/users/{user_id}` | Retrieve a user                         |
+| PATCH  | `/api/v1/users/{user_id}` | Update user name, role or active status |
+| DELETE | `/api/v1/users/{user_id}` | Deactivate a user                       |
+| GET    | `/api/v1/users/summary`   | Return user counts by role and status   |
+
+Example user update:
+
+```json
+{
+  "role": "TECHNICIAN",
+  "isActive": true
+}
+```
+
+DELETE performs a soft deactivation. It does not permanently delete the user record. An administrator cannot deactivate or demote their own account.
+
+### 4.3 IT Service Catalogue
+
+| Method | Endpoint                        | Access        | Purpose              |
+| ------ | ------------------------------- | ------------- | -------------------- |
+| POST   | `/api/v1/services`              | ADMIN         | Create a service     |
+| GET    | `/api/v1/services`              | Authenticated | List active services |
+| GET    | `/api/v1/services/{service_id}` | Authenticated | Retrieve a service   |
+| PATCH  | `/api/v1/services/{service_id}` | ADMIN         | Update a service     |
+| DELETE | `/api/v1/services/{service_id}` | ADMIN         | Deactivate a service |
+
+Example service creation:
+
+```json
+{
+  "name": "Email Service",
+  "description": "Corporate email and calendar services",
+  "businessCriticality": 4
+}
+```
+
+Business criticality must be an integer from 1 to 5. Administrators may use `?include_inactive=true` when listing services.
+
+### 4.4 Incident Categories
+
+| Method | Endpoint                           | Access        | Purpose                |
+| ------ | ---------------------------------- | ------------- | ---------------------- |
+| POST   | `/api/v1/categories`               | ADMIN         | Create a category      |
+| GET    | `/api/v1/categories`               | Authenticated | List active categories |
+| GET    | `/api/v1/categories/{category_id}` | Authenticated | Retrieve a category    |
+| PATCH  | `/api/v1/categories/{category_id}` | ADMIN         | Update a category      |
+| DELETE | `/api/v1/categories/{category_id}` | ADMIN         | Deactivate a category  |
+
+Example category creation:
+
+```json
+{
+  "category": "NETWORK",
+  "description": "Network connectivity issues",
+  "requiredSkill": "NETWORK"
+}
+```
+
+Categories use the shared `IncidentCategory` enum. The `requiredSkill` value maps the incident category to the skill name used by the technician module. Administrators may use `?include_inactive=true` when listing categories.
+
+### 4.5 Administrative Reports
+
+| Method | Endpoint                  | Access | Purpose                                  |
+| ------ | ------------------------- | ------ | ---------------------------------------- |
+| GET    | `/api/v1/reports/summary` | ADMIN  | Summarise users, services and categories |
+
+The response includes total, active and inactive counts for each platform-owned entity, together with user counts grouped by role.
+
+### 4.6 Access Control
+
+- Public registration always creates an Employee account.
+- Login issues a signed JWT containing the user's UUID and role.
+- Protected endpoints validate the Bearer token.
+- Administrator operations enforce the `ADMIN` role.
+- Inactive accounts cannot log in or access the current-user endpoint.
+- Deactivation is implemented as a status change rather than permanent deletion.

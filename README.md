@@ -13,6 +13,7 @@ An enterprise-grade, object-oriented incident management and resolution system d
 ## 1. Project Objectives
 
 Modern enterprise organizations manage thousands of digital incidents daily across cloud services, networks, authentication clusters, and databases. I-ITSM replaces fragile, manual ticket handling with:
+
 - **Strict OOP Domain Modeling:** Encapsulation of domain invariants, abstraction of algorithms, and polymorphism across strategies.
 - **Intelligent Technician Allocation:** Two deterministic assignment algorithms (`SkillBasedAssignmentStrategy` and `LeastLoadedAssignmentStrategy`) combined with an LLM-assisted recommendation engine.
 - **Full Incident Lifecycle Enforcement:** State-machine transitions (`NEW` $\rightarrow$ `CLASSIFIED` $\rightarrow$ `ASSIGNED` $\rightarrow$ `ACKNOWLEDGED` $\rightarrow$ `IN_PROGRESS` $\rightarrow$ `RESOLVED` $\rightarrow$ `VERIFIED` $\rightarrow$ `CLOSED`).
@@ -50,6 +51,7 @@ graph TD
 ```
 
 ### Module Boundaries & Team Ownership
+
 - **Member 1 (Platform & Access):** Identity, authentication, users, roles, IT service catalog, categories.
 - **Member 2 (Incident Lifecycle):** Incident CRUD, priority scoring, lifecycle transitions, comments, duplicate detection.
 - **Member 3 (Technician & Assignment - Implemented Here):** Technician profiles, skills catalog, availability state, workload tracking, assignment strategies, LLM-enhanced recommendations.
@@ -123,6 +125,7 @@ I-ITSM/
 ## 6. Quick Start & Setup
 
 ### 6.1 Clone & Setup Environment
+
 ```bash
 git clone <repo-url>
 cd I-ITSM/backend
@@ -137,28 +140,34 @@ pip install -e ".[dev]"
 ```
 
 ### 6.2 Configure Environment
+
 ```bash
 cp .env.example .env
 # Edit .env if using a custom PostgreSQL instance or LLM provider
 ```
 
 ### 6.3 Run with Docker Compose (Recommended)
+
 From the project root:
+
 ```bash
 docker compose up -d db
 ```
 
 ### 6.4 Apply Database Migrations
+
 ```bash
 cd backend
 alembic upgrade head
 ```
 
 ### 6.5 Start Backend Server
+
 ```bash
 cd backend
 uvicorn app.main:create_app --factory --reload --port 8000
 ```
+
 - Interactive API Documentation (Swagger): [http://localhost:8000/docs](http://localhost:8000/docs)
 - Alternative API Documentation (ReDoc): [http://localhost:8000/redoc](http://localhost:8000/redoc)
 - Health Check: [http://localhost:8000/health](http://localhost:8000/health)
@@ -199,6 +208,7 @@ LLM_MAX_RETRIES=2
 ```
 
 ### Resilience Guarantee
+
 If the LLM endpoint is unreachable, times out, or returns invalid JSON, the system automatically and transparently falls back to deterministic recommendations (`SkillBasedAssignmentStrategy` or `LeastLoadedAssignmentStrategy`), attaching a fallback diagnostic note without throwing a 500 error.
 
 ---
@@ -215,3 +225,46 @@ If the LLM endpoint is unreachable, times out, or returns invalid JSON, the syst
    - Ensure `pytest` passes 100%.
    - Ensure `ruff check .` has 0 errors.
    - Update `PROJECT_CONTRACT.md` if any schema or API contract changed.
+
+---
+
+## 10. Member 1 Platform & Frontend
+
+The platform module provides:
+
+- Employee registration and login using bcrypt password hashing and JWT authentication.
+- Role-based access for Employees, Technicians and Administrators.
+- Administrator user management, including role updates and account deactivation.
+- IT service catalogue with business criticality levels from 1 to 5.
+- Incident category configuration and required technician skill mapping.
+- Administrative summary reporting for users, services and categories.
+
+### React Frontend
+
+The React application is located in `frontend/` and uses Vite.
+
+Start the frontend:
+
+```powershell
+cd frontend
+npm install
+npm run dev -- --port 3000
+```
+
+Open `http://localhost:3000`.
+
+### Local SQLite Demonstration
+
+For local development without PostgreSQL or Docker, the backend can use SQLite:
+
+```powershell
+cd backend
+.\.venv\Scripts\Activate.ps1
+$env:DATABASE_URL = "sqlite+aiosqlite:///./iitsm.db"
+alembic upgrade head
+uvicorn app.main:app --reload --port 8000
+```
+
+The SQLite database file is stored locally as `backend/iitsm.db`.
+
+The normal team environment remains PostgreSQL as specified in the project configuration. SQLite is used here as a convenient local demonstration and test database.
