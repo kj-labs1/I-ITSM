@@ -38,7 +38,7 @@ class SQLAlchemyTechnicianRepository(TechnicianRepository):
         """Map a TechnicianModel ORM instance to a pure domain Technician entity."""
         skills = [
             TechnicianSkill(
-                technician_id=model.user_id,
+                technician_id=model.id,
                 skill_name=sm.skill_name,
                 _proficiency_level=sm.proficiency_level,
                 id=sm.id,

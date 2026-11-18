@@ -153,3 +153,86 @@ class TestTechniciansAPI:
         dup_resp = await async_client.post("/api/v1/technicians", json={"userId": uid})
         assert dup_resp.status_code == 409
         assert dup_resp.json()["errorCode"] == "TECHNICIAN_ALREADY_EXISTS"
+
+    @pytest.mark.asyncio
+    async def test_skill_response_contains_profile_id(self, async_client: AsyncClient):
+        """Skill technician_id in API response equals the technician profile id, not user_id."""
+        user_id = str(uuid4())
+        create_resp = await async_client.post(
+            "/api/v1/technicians",
+            json={
+                "userId": user_id,
+                "skills": [{"skillName": "NETWORK", "proficiencyLevel": 4}],
+            },
+        )
+        assert create_resp.status_code == 201
+        data = create_resp.json()
+        tech_id = data["id"]
+
+        # tech_id != user_id
+        assert tech_id != user_id
+
+        # Every skill's technicianId must equal the profile id
+        for skill in data["skills"]:
+            assert skill["technicianId"] == tech_id
+            assert skill["technicianId"] != user_id
+
+        # Also verify via GET /{id}/skills
+        skills_resp = await async_client.get(f"/api/v1/technicians/{tech_id}/skills")
+        assert skills_resp.status_code == 200
+        for skill in skills_resp.json():
+            assert skill["technicianId"] == tech_id
+
+    @pytest.mark.asyncio
+    async def test_patch_update_technician_via_service(self, async_client: AsyncClient):
+        """PATCH /technicians/{id} updates fields through the service layer."""
+        user_id = str(uuid4())
+        create_resp = await async_client.post(
+            "/api/v1/technicians",
+            json={"userId": user_id, "experienceYears": 2, "maxCapacity": 5},
+        )
+        tech_id = create_resp.json()["id"]
+
+        # Update only experience_years
+        patch_resp = await async_client.patch(
+            f"/api/v1/technicians/{tech_id}",
+            json={"experienceYears": 10},
+        )
+        assert patch_resp.status_code == 200
+        data = patch_resp.json()
+        assert data["experienceYears"] == 10
+        assert data["maxCapacity"] == 5  # Unchanged
+
+        # Update only max_capacity
+        patch_resp2 = await async_client.patch(
+            f"/api/v1/technicians/{tech_id}",
+            json={"maxCapacity": 20},
+        )
+        assert patch_resp2.status_code == 200
+        data2 = patch_resp2.json()
+        assert data2["maxCapacity"] == 20
+        assert data2["experienceYears"] == 10  # Preserved
+
+    @pytest.mark.asyncio
+    async def test_patch_update_rejects_invalid_values(self, async_client: AsyncClient):
+        """PATCH /technicians/{id} rejects negative experience or zero capacity."""
+        user_id = str(uuid4())
+        create_resp = await async_client.post(
+            "/api/v1/technicians",
+            json={"userId": user_id, "experienceYears": 3, "maxCapacity": 5},
+        )
+        tech_id = create_resp.json()["id"]
+
+        # Negative experience_years — rejected by Pydantic schema (ge=0) as 422
+        neg_exp = await async_client.patch(
+            f"/api/v1/technicians/{tech_id}",
+            json={"experienceYears": -1},
+        )
+        assert neg_exp.status_code in (409, 422)
+
+        # Zero max_capacity — rejected by Pydantic schema (ge=1) as 422
+        zero_cap = await async_client.patch(
+            f"/api/v1/technicians/{tech_id}",
+            json={"maxCapacity": 0},
+        )
+        assert zero_cap.status_code in (409, 422)
