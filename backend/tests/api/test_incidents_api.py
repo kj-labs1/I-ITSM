@@ -236,9 +236,6 @@ async def test_incident_comments_appear_in_details(
     )
 
 
-import uuid
-
-
 @pytest.mark.asyncio
 async def test_incident_list_can_filter_by_category(async_client):
     """Verify category filtering on the incident list."""
@@ -314,7 +311,7 @@ async def test_incident_list_can_filter_by_incident_code(async_client):
 async def test_duplicate_endpoint_finds_similar_incident(async_client):
     """Verify the API flags a similar incident."""
 
-    service_id = str(uuid.uuid4())
+    service_id = str(uuid4())
 
     first_payload = create_payload()
     first_payload["serviceId"] = service_id

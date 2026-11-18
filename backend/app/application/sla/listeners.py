@@ -16,7 +16,7 @@ OOP Design:
 from __future__ import annotations
 
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
 from uuid import UUID
 

@@ -12,14 +12,12 @@ Cross-module UUID references are stored without physical foreign keys
 in this initial migration to allow independent module development.
 """
 from __future__ import annotations
-from uuid import UUID
-
 
 from datetime import UTC, datetime
+from uuid import UUID
 
 from sqlalchemy import (
     CheckConstraint,
-    Enum as SAEnum,
     ForeignKey,
     Index,
     Integer,
@@ -27,6 +25,9 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+)
+from sqlalchemy import (
+    Enum as SAEnum,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import Uuid

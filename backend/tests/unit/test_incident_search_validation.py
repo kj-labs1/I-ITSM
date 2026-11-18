@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from unittest.mock import AsyncMock
 
 import pytest
@@ -136,12 +136,12 @@ async def test_invalid_date_range_is_rejected(
 
     date_from = datetime(
         2026, 11, 15, 12, 0,
-        tzinfo=timezone.utc,
+        tzinfo=UTC,
     )
 
     date_to = datetime(
         2026, 11, 15, 10, 0,
-        tzinfo=timezone.utc,
+        tzinfo=UTC,
     )
 
     with pytest.raises(ValidationError) as exc:
@@ -185,9 +185,9 @@ async def test_search_dates_are_normalized_to_utc(
     assert kwargs["date_to"].utcoffset() == timedelta(0)
 
     assert kwargs["date_from"] == date_from.astimezone(
-        timezone.utc
+        UTC
     )
 
     assert kwargs["date_to"] == date_to.astimezone(
-        timezone.utc
+        UTC
     )

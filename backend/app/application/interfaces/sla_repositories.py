@@ -12,7 +12,6 @@ from abc import ABC, abstractmethod
 from uuid import UUID
 
 from app.domain.sla.audit import AuditLogEntry
-from app.domain.sla.enums import SLAStatus
 from app.domain.sla.notification import Notification
 from app.domain.sla.policy import SLAPolicy
 from app.domain.sla.tracking import IncidentSLATracking

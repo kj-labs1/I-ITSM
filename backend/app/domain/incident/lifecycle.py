@@ -142,7 +142,7 @@ class IncidentLifecycle:
             else str(new_status)
         )
 
-        
+
 
         raise InvalidStatusTransitionError(
             current_status=current,

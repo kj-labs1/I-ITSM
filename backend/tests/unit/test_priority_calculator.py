@@ -8,7 +8,6 @@ import pytest
 from app.domain.incident.priority_calculator import PriorityCalculator
 from app.shared.enums import Priority
 
-
 # ============================================================
 # SCORE CALCULATION TESTS
 # ============================================================

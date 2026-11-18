@@ -15,17 +15,8 @@ Architecture:
 from __future__ import annotations
 
 import logging
-from uuid import UUID, uuid4
-from datetime import timedelta
-from uuid import UUID
 from datetime import UTC, datetime
-from app.domain.incident.duplicate_policy import (
-    DEFAULT_DUPLICATE_POLICY,
-)
-from app.domain.incident.duplicate_detector import (
-    DuplicateDetector,
-    DuplicateMatch,
-)
+from uuid import UUID, uuid4
 
 from app.application.interfaces.event_publisher import EventPublisher
 from app.application.interfaces.incident_repository import IncidentRepository
@@ -35,6 +26,12 @@ from app.core.exceptions import (
     IncidentNotFoundError,
     InvalidAssignmentError,
     ValidationError,
+)
+from app.domain.incident.duplicate_detector import (
+    DuplicateDetector,
+)
+from app.domain.incident.duplicate_policy import (
+    DEFAULT_DUPLICATE_POLICY,
 )
 from app.domain.incident.events import (
     IncidentCreatedEvent,
@@ -48,7 +45,6 @@ from app.domain.incident.priority_calculator import PriorityCalculator
 from app.shared.enums import (
     IncidentCategory,
     IncidentStatus,
-    Priority,
 )
 
 logger = logging.getLogger(__name__)
@@ -255,7 +251,7 @@ class IncidentApplicationService(IncidentServiceBoundary):
         service_id=service_id,
         assigned_technician_id=assigned_technician_id,
     )
-    
+
     async def find_potential_duplicates(
     self,
     incident_id: UUID,

@@ -11,13 +11,14 @@ Architecture:
 """
 
 from __future__ import annotations
-from app.domain.incident.priority_calculator import PriorityCalculator
-from app.core.exceptions import ValidationError
-from app.domain.incident.lifecycle import IncidentLifecycle
+
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+from app.core.exceptions import ValidationError
+from app.domain.incident.lifecycle import IncidentLifecycle
+from app.domain.incident.priority_calculator import PriorityCalculator
 from app.shared.enums import IncidentCategory, IncidentStatus, Priority
 
 

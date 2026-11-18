@@ -10,6 +10,7 @@ Tests:
 
 from __future__ import annotations
 
+from dataclasses import FrozenInstanceError
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -209,5 +210,5 @@ class TestNotificationAndDispatchers:
             action="INCIDENT_ASSIGNED",
             event_type="IncidentAssignedEvent",
         )
-        with pytest.raises(Exception):
+        with pytest.raises(FrozenInstanceError):
             entry.action = "MODIFIED"  # type: ignore[misc]

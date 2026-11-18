@@ -12,14 +12,12 @@ directly interacting with the database.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from uuid import UUID
 from datetime import datetime
 from uuid import UUID
 
 from app.domain.incident.incident import Incident
-from app.shared.enums import IncidentCategory
-from app.domain.incident.incident import Incident
 from app.domain.incident.incident_comment import IncidentComment
+from app.shared.enums import IncidentCategory
 
 
 class IncidentRepository(ABC):
@@ -30,7 +28,7 @@ class IncidentRepository(ABC):
         """Persist a new incident."""
         ...
 
-    
+
     @abstractmethod
     async def find_recent_by_service_and_category(
     self,
@@ -107,4 +105,3 @@ class IncidentRepository(ABC):
         """Retrieve all comments associated with an incident."""
         ...
 
-    

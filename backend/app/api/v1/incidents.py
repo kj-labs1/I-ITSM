@@ -16,8 +16,8 @@ Member 2 owns these routes.
 from __future__ import annotations
 
 import logging
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
@@ -33,20 +33,19 @@ from app.api.v1.schemas import (
     IncidentResponse,
     IncidentStatusUpdateRequest,
     IncidentUpdateRequest,
+    PotentialDuplicateResponse,
 )
 from app.application.incident.service import IncidentApplicationService
 from app.core.exceptions import (
     AuthorizationError,
-    ValidationError,
 )
-from app.api.v1.schemas import PotentialDuplicateResponse
+from app.domain.incident.incident import Incident
+from app.domain.incident.incident_comment import IncidentComment
 from app.shared.enums import (
     IncidentCategory,
     IncidentStatus,
     Priority,
 )
-from app.domain.incident.incident import Incident
-from app.domain.incident.incident_comment import IncidentComment
 
 logger = logging.getLogger(__name__)
 

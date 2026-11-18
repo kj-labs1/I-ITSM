@@ -24,9 +24,6 @@ from app.shared.enums import (
 )
 
 
-
-
-
 class BaseDTO(BaseModel):
     """Base class for all API DTOs configuring camelCase serialization."""
 

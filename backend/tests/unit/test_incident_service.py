@@ -208,7 +208,6 @@ async def test_invalid_incident_update_is_rejected(
         business_criticality=2,
     )
 
-    from app.core.exceptions import ValidationError
 
     with pytest.raises(ValidationError):
 
@@ -389,7 +388,6 @@ async def test_duplicate_assignment_rejected(
         actor_id=uuid4(),
     )
 
-    from app.core.exceptions import DuplicateAssignmentError
 
     with pytest.raises(DuplicateAssignmentError):
 

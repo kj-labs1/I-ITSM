@@ -52,7 +52,6 @@ from app.infrastructure.repositories.technician_repository import (
 from app.integrations.llm.factory import LLMProviderFactory
 from app.integrations.llm.provider import LLMProvider
 
-
 # ============================================================
 # REPOSITORY DEPENDENCIES
 # ============================================================

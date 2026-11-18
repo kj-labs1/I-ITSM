@@ -37,7 +37,6 @@ from app.domain.sla.tracking import IncidentSLATracking
 from app.infrastructure.events.event_bus import InProcessEventBus
 from app.shared.enums import IncidentStatus, Priority
 
-
 # ── In-Memory Repository Doubles ──────────────────────────────────────────────
 
 
@@ -90,9 +89,10 @@ class InMemoryTrackingRepo(SLATrackingRepository):
     ) -> list[IncidentSLATracking]:
         out = []
         for t in self.items.values():
-            if t.is_breached or (include_warnings and t.status == SLAStatus.WARNING):
-                if priority is None or t.priority == priority:
-                    out.append(t)
+            if (t.is_breached or (include_warnings and t.status == SLAStatus.WARNING)) and (
+                priority is None or t.priority == priority
+            ):
+                out.append(t)
         return out[skip : skip + limit]
 
 

@@ -13,15 +13,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from uuid import UUID
+
 from sqlalchemy import func, select
-
-from app.shared.enums import (
-    IncidentCategory,
-    IncidentStatus,
-    Priority,
-)
-
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.interfaces.incident_repository import (
@@ -33,7 +26,11 @@ from app.infrastructure.database.incident_models import (
     IncidentCommentModel,
     IncidentModel,
 )
-from app.shared.enums import IncidentCategory, IncidentStatus, Priority
+from app.shared.enums import (
+    IncidentCategory,
+    IncidentStatus,
+    Priority,
+)
 
 
 class SQLAlchemyIncidentRepository(IncidentRepository):
@@ -135,7 +132,7 @@ class SQLAlchemyIncidentRepository(IncidentRepository):
 
         return self._to_domain(model)
 
-    
+
     async def find_recent_by_service_and_category(
         self,
         service_id: UUID,

@@ -205,7 +205,7 @@ class InvalidStatusTransitionError(BusinessRuleError):
             error_code="INVALID_STATUS_TRANSITION",
         )
 
-        
+
 class TechnicianUnavailableError(BusinessRuleError):
     """The technician is not in an AVAILABLE status."""
 

@@ -12,11 +12,6 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncGenerator
-from app.application.incident.service import IncidentApplicationService
-
-from app.infrastructure.repositories.incident_repository import (
-    SQLAlchemyIncidentRepository,
-)
 
 import pytest
 import pytest_asyncio
@@ -28,6 +23,8 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+import app.infrastructure.database.incident_models
+
 # Register all ORM models with SQLAlchemy metadata before create_all
 import app.infrastructure.database.models  # noqa: F401
 import app.infrastructure.database.sla_models  # noqa: F401
@@ -37,6 +34,7 @@ from app.api.deps import (
     get_audit_service,
     get_db_session,
     get_event_publisher,
+    get_incident_service,
     get_incident_service_boundary,
     get_llm_provider,
     get_notification_repository,
@@ -47,19 +45,21 @@ from app.api.deps import (
     get_sla_tracking_repository,
     get_technician_repository,
     get_technician_service,
-    get_incident_service
 )
 from app.application.assignment.service import (
     SmartTechnicianRecommendationService,
     TechnicianAssignmentService,
 )
+from app.application.incident.service import IncidentApplicationService
 from app.application.sla.audit_service import AuditService
 from app.application.sla.notification_service import NotificationService
 from app.application.sla.sla_service import SLAService
 from app.application.technician.service import TechnicianProfileService
-import app.infrastructure.database.incident_models
 from app.infrastructure.database.base import Base
 from app.infrastructure.events.event_bus import InProcessEventBus
+from app.infrastructure.repositories.incident_repository import (
+    SQLAlchemyIncidentRepository,
+)
 from app.infrastructure.repositories.sla_repository import (
     SQLAlchemyAuditLogRepository,
     SQLAlchemyNotificationRepository,
