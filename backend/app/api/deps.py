@@ -21,9 +21,24 @@ from app.application.assignment.service import (
 from app.application.interfaces.event_publisher import EventPublisher
 from app.application.interfaces.incident_service import IncidentServiceBoundary
 from app.application.interfaces.repositories import TechnicianRepository
+from app.application.interfaces.sla_repositories import (
+    AuditLogRepository,
+    NotificationRepository,
+    SLAPolicyRepository,
+    SLATrackingRepository,
+)
+from app.application.sla.audit_service import AuditService
+from app.application.sla.notification_service import NotificationService
+from app.application.sla.sla_service import SLAService
 from app.application.technician.service import TechnicianProfileService
 from app.infrastructure.database.session import get_db_session
 from app.infrastructure.events.event_bus import get_event_bus
+from app.infrastructure.repositories.sla_repository import (
+    SQLAlchemyAuditLogRepository,
+    SQLAlchemyNotificationRepository,
+    SQLAlchemySLAPolicyRepository,
+    SQLAlchemySLATrackingRepository,
+)
 from app.infrastructure.repositories.technician_repository import (
     SQLAlchemyTechnicianRepository,
 )
@@ -98,6 +113,64 @@ def get_assignment_service(
         incident_service=incident_service,
         event_publisher=event_bus,
     )
+
+
+# ── Module 4: SLA, Audit & Notifications Dependencies ─────────────────────────
+
+
+def get_sla_policy_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> SLAPolicyRepository:
+    """Provide a scoped SQLAlchemySLAPolicyRepository."""
+    return SQLAlchemySLAPolicyRepository(session)
+
+
+def get_sla_tracking_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> SLATrackingRepository:
+    """Provide a scoped SQLAlchemySLATrackingRepository."""
+    return SQLAlchemySLATrackingRepository(session)
+
+
+def get_audit_log_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> AuditLogRepository:
+    """Provide a scoped SQLAlchemyAuditLogRepository."""
+    return SQLAlchemyAuditLogRepository(session)
+
+
+def get_notification_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> NotificationRepository:
+    """Provide a scoped SQLAlchemyNotificationRepository."""
+    return SQLAlchemyNotificationRepository(session)
+
+
+def get_sla_service(
+    policy_repo: SLAPolicyRepository = Depends(get_sla_policy_repository),
+    tracking_repo: SLATrackingRepository = Depends(get_sla_tracking_repository),
+    event_bus: EventPublisher = Depends(get_event_publisher),
+) -> SLAService:
+    """Provide the SLAService."""
+    return SLAService(
+        policy_repo=policy_repo,
+        tracking_repo=tracking_repo,
+        event_publisher=event_bus,
+    )
+
+
+def get_audit_service(
+    audit_repo: AuditLogRepository = Depends(get_audit_log_repository),
+) -> AuditService:
+    """Provide the AuditService."""
+    return AuditService(audit_repo=audit_repo)
+
+
+def get_notification_service(
+    notification_repo: NotificationRepository = Depends(get_notification_repository),
+) -> NotificationService:
+    """Provide the NotificationService."""
+    return NotificationService(notification_repo=notification_repo)
 
 
 async def get_actor_user_id() -> UUID:
