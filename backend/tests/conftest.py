@@ -11,6 +11,11 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncGenerator
+from app.application.incident.service import IncidentApplicationService
+
+from app.infrastructure.repositories.incident_repository import (
+    SQLAlchemyIncidentRepository,
+)
 
 import pytest
 import pytest_asyncio
@@ -31,12 +36,14 @@ from app.api.deps import (
     get_recommendation_service,
     get_technician_repository,
     get_technician_service,
+    get_incident_service
 )
 from app.application.assignment.service import (
     SmartTechnicianRecommendationService,
     TechnicianAssignmentService,
 )
 from app.application.technician.service import TechnicianProfileService
+import app.infrastructure.database.incident_models
 from app.infrastructure.database.base import Base
 from app.infrastructure.events.event_bus import InProcessEventBus
 from app.infrastructure.repositories.technician_repository import (
@@ -165,14 +172,33 @@ async def async_client(
 
     # Create scoped test services
     repo = SQLAlchemyTechnicianRepository(db_session)
+
+    incident_repo = SQLAlchemyIncidentRepository(db_session)
+
+    incident_service = IncidentApplicationService(
+        repository=incident_repo,
+        event_publisher=event_bus,
+    )
+
     t_svc = TechnicianProfileService(repo, stub_incidents, event_bus)
-    r_svc = SmartTechnicianRecommendationService(repo, stub_incidents, mock_llm)
-    a_svc = TechnicianAssignmentService(repo, stub_incidents, event_bus)
+
+    r_svc = SmartTechnicianRecommendationService(
+        repo,
+        stub_incidents,
+        mock_llm,
+    )
+
+    a_svc = TechnicianAssignmentService(
+        repo,
+        stub_incidents,
+        event_bus,
+    )
 
     # Override dependencies
     app.dependency_overrides[get_db_session] = lambda: db_session
     app.dependency_overrides[get_technician_repository] = lambda: repo
     app.dependency_overrides[get_incident_service_boundary] = lambda: stub_incidents
+    app.dependency_overrides[get_incident_service] = lambda: incident_service
     app.dependency_overrides[get_event_publisher] = lambda: event_bus
     app.dependency_overrides[get_llm_provider] = lambda: mock_llm
     app.dependency_overrides[get_technician_service] = lambda: t_svc

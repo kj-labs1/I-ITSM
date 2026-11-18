@@ -124,3 +124,76 @@ All team members must use these exact enumeration tokens without renaming:
 The following fields are introduced in Module 3 to satisfy algorithm and capacity requirements:
 1. `technicians.experience_years` (Integer, default 0): Required by the course brief to implement experience-based ranking and tie-breaking.
 2. `technicians.max_capacity` (Integer, default 10): Required to enforce the "technician capacity limit" requirement from the evaluation rubric.
+
+
+## 7. Incident Priority Calculation — Member 2
+
+Member 2 owns the incident priority calculation engine.
+
+### 7.1 Priority Score Formula
+
+Priority is calculated using:
+
+Priority Score = Impact x Urgency x Business Criticality
+
+All three factors must be integers between 1 and 5.
+
+- Impact: Severity of the effect on users and operations.
+- Urgency: How quickly the incident requires attention.
+- Business Criticality: Criticality rating of the affected service, obtained from Member 1's service catalogue.
+
+### 7.2 Priority Thresholds
+
+| Score | Priority | Classification |
+|---|---|---|
+| 75-125 | P1 | Critical |
+| 40-74 | P2 | High |
+| 15-39 | P3 | Medium |
+| 1-14 | P4 | Low |
+
+These thresholds follow the team's execution handbook
+and serve as the Member 2 implementation baseline.
+
+### 7.3 Implementation Rules
+
+1. Priority must always be calculated by the backend.
+2. Frontend applications must not calculate or submit priority.
+3. Business criticality must be obtained from Member 1's service catalogue.
+4. Priority must be recalculated when any scoring factor changes.
+5. The resulting priority must use the shared Priority enum.
+6. Priority calculation must be independently unit-tested.
+
+
+
+## 8. Incident Lifecycle State Machine — Member 2
+
+Member 2 owns the authoritative incident lifecycle state machine.
+
+### 8.1 Permitted Transitions
+
+| Current Status | Permitted Next Status |
+|---|---|
+| NEW | CLASSIFIED, ASSIGNED |
+| CLASSIFIED | ASSIGNED |
+| ASSIGNED | ACKNOWLEDGED |
+| ACKNOWLEDGED | IN_PROGRESS |
+| IN_PROGRESS | RESOLVED |
+| RESOLVED | VERIFIED |
+| VERIFIED | CLOSED |
+| CLOSED | None |
+
+The NEW -> ASSIGNED transition is supported for compatibility
+with the Member 3 assignment integration contract.
+
+### 8.2 Lifecycle Rules
+
+1. All status changes must pass through the Incident lifecycle service/domain method.
+2. Invalid status transitions must be rejected.
+3. Invalid transitions return HTTP 409 Conflict.
+4. The error code for invalid transitions is INVALID_STATUS_TRANSITION.
+5. Resolution details are mandatory before an incident can be marked RESOLVED.
+6. CLOSED is a terminal state and cannot transition to another state.
+7. Every successful status transition updates the incident's updatedAt timestamp.
+8. Member 3 must use the Member 2 lifecycle boundary when acknowledging,
+   investigating or resolving incidents.
+9. Member 4 receives lifecycle events from Member 2 for SLA and audit processing.

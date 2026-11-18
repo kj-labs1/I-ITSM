@@ -158,3 +158,164 @@
     - `SKILL_MISMATCH`: Technician lacks incident's required skill.
     - `CAPACITY_EXCEEDED`: Technician active incidents $\ge$ max capacity.
     - `INVALID_ASSIGNMENT`: Incident is in an unassignable lifecycle state.
+
+
+
+---
+
+## 4. Incident Search, Filtering and Duplicate Detection (Module 2)
+
+### 4.1 Search and Filter Incidents
+
+- **Method & Path:** `GET /api/v1/incidents`
+
+Supported query parameters:
+
+| Parameter | Type | Description |
+|---|---|---|
+| `skip` | Integer | Number of records to skip; default 0 |
+| `limit` | Integer | Maximum results; default 50, maximum 100 |
+| `incidentId` | UUID | Exact incident ID |
+| `incidentCode` | String | Partial, case-insensitive incident-code search |
+| `dateFrom` | ISO-8601 datetime | Include incidents created at or after this time |
+| `dateTo` | ISO-8601 datetime | Include incidents created at or before this time |
+| `status` | IncidentStatus | Filter by lifecycle status |
+| `priority` | Priority | Filter by P1, P2, P3 or P4 |
+| `category` | IncidentCategory | Filter by incident category |
+| `serviceId` | UUID | Filter by affected service |
+| `assignedTechnicianId` | UUID | Filter by assigned technician |
+
+Multiple filters are combined using AND logic.
+
+The current employee-facing endpoint restricts results to the authenticated reporter's incidents.
+
+- **Response 200 OK:** List of matching `IncidentResponse` objects.
+- **Response 400 Bad Request:** Invalid date range or query parameters.
+
+### 4.2 Find Potential Duplicate Incidents
+
+- **Method & Path:** `GET /api/v1/incidents/{incident_id}/duplicates`
+
+The backend compares the incident with other incidents satisfying all of these conditions:
+
+1. Same affected service.
+2. Same incident category.
+3. Created within the previous 24 hours.
+4. Description Jaccard similarity greater than or equal to 0.50.
+
+Description preprocessing includes lowercase normalization, punctuation removal,
+tokenization and common stop-word removal.
+
+- **Response 200 OK:**
+
+```json
+[
+  {
+    "incidentId": "550e8400-e29b-41d4-a716-446655440000",
+    "incidentCode": "INC-1001",
+    "category": "NETWORK",
+    "priority": "P2",
+    "status": "NEW",
+    "createdAt": "2026-11-14T10:00:00Z",
+    "similarityScore": 0.75,
+    "explanation": "Same affected service and category. Description similarity is 0.750, which meets the threshold of 0.50."
+  }
+]
+
+### 4.3 Retrieve Incident
+
+- Method: GET
+- Path: `/api/v1/incidents/{incident_id}`
+
+Returns IncidentDetailsResponse, including associated comments.
+
+### 4.4 Update Incident
+
+- Method: PATCH
+- Path: `/api/v1/incidents/{incident_id}`
+
+Permitted fields:
+- description
+- impact
+- urgency
+
+Priority is recalculated when scoring factors change.
+
+### 4.5 Update Incident Status
+
+- Method: PATCH
+- Path: `/api/v1/incidents/{incident_id}/status`
+
+Request:
+
+{
+  "status": "CLASSIFIED"
+}
+
+For RESOLVED:
+
+{
+  "status": "RESOLVED",
+  "resolutionDetails": "Network configuration corrected."
+}
+
+Every successful transition must pass through IncidentLifecycle.
+
+### 4.6 Add Incident Comment
+
+- Method: POST
+- Path: `/api/v1/incidents/{incident_id}/comments`
+
+Request:
+
+{
+  "content": "Please investigate the network issue."
+}
+
+Success: 201 Created.
+
+### 4.7 Common Error Responses
+
+- 400: Invalid request or validation error.
+- 403: Insufficient incident access permissions.
+- 404: Incident not found.
+- 409: Invalid lifecycle transition or business-rule conflict.
+
+All errors use the shared I-ITSM error response envelope.
+
+### 4.3 Search Validation Rules
+
+The incident search endpoint applies the following validation rules:
+
+1. `skip` must be greater than or equal to zero.
+2. `limit` must be between 1 and 100.
+3. Incident codes are trimmed before searching.
+4. Incident codes containing only whitespace are rejected.
+5. Date filters must use timezone-aware ISO-8601 timestamps.
+6. Date filters are normalized to UTC before database queries.
+7. `dateFrom` must be earlier than or equal to `dateTo`.
+
+Relevant application error codes:
+
+| Error Code | HTTP Status | Description |
+|---|---:|---|
+| `INVALID_PAGINATION` | 400 | Invalid skip or limit supplied to the application service |
+| `INVALID_INCIDENT_CODE` | 400 | Incident code is blank or too long |
+| `TIMEZONE_REQUIRED` | 400 | Date filter does not contain timezone information |
+| `INVALID_DATE_RANGE` | 400 | dateFrom occurs after dateTo |
+
+### 4.4 Duplicate Detection Policy
+
+The duplicate detection policy is centralized in
+`app/domain/incident/duplicate_policy.py`.
+
+Default configuration:
+
+- Lookback window: 24 hours.
+- Jaccard similarity threshold: 0.50.
+- Candidate service and category must match.
+- Similarity results are ordered from highest to lowest.
+- The explanation includes the similarity score and shared-token count.
+
+Duplicate detection only identifies potential matches. It never automatically
+deletes or merges incident records.

@@ -174,6 +174,38 @@ class SkillMismatchError(BusinessRuleError):
         super().__init__(message=message, error_code="SKILL_MISMATCH")
 
 
+class InvalidStatusTransitionError(BusinessRuleError):
+    """
+    Raised when an incident attempts an invalid lifecycle transition.
+
+    HTTP Status: 409 Conflict
+    Error Code: INVALID_STATUS_TRANSITION
+    """
+
+    def __init__(
+        self,
+        current_status: str,
+        requested_status: str,
+        incident_code: str | None = None,
+    ) -> None:
+
+        incident_reference = (
+            f"Incident {incident_code}"
+            if incident_code
+            else "Incident"
+        )
+
+        message = (
+            f"{incident_reference} cannot transition "
+            f"from {current_status} to {requested_status}."
+        )
+
+        super().__init__(
+            message=message,
+            error_code="INVALID_STATUS_TRANSITION",
+        )
+
+        
 class TechnicianUnavailableError(BusinessRuleError):
     """The technician is not in an AVAILABLE status."""
 

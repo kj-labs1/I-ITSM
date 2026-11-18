@@ -17,6 +17,7 @@ from app.api.v1 import (
     assignment,
     auth,
     categories,
+    incidents,
     reports,
     services,
     technicians,
@@ -28,6 +29,9 @@ router = APIRouter()
 # ── Module 3: Technicians & Assignment ────────────────────────────────────────
 router.include_router(technicians.router)
 router.include_router(assignment.router)
+
+# ── Module 2: Incidents Management ───────────────────────────────────────────
+router.include_router(incidents.router)
 
 # ── Module 1: Platform, Identity, Services & Categories ───────────────────────
 router.include_router(auth.router, prefix="/auth")
