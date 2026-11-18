@@ -274,3 +274,49 @@ class DatabaseError(IITSMException):
 
     def __init__(self, message: str = "A database error occurred."):
         super().__init__(message=message, error_code="DATABASE_ERROR", status_code=500)
+
+
+# ── Member 4 (SLA, Audit & Notifications) Errors ─────────────────────────────
+
+
+class SLAPolicyNotFoundError(NotFoundError):
+    """Requested SLA policy does not exist."""
+
+    def __init__(self, resource_id: str | UUID | None = None, message: str | None = None) -> None:
+        super().__init__(
+            resource_type="SLAPolicy",
+            resource_id=resource_id,
+            message=message,
+            error_code="SLA_POLICY_NOT_FOUND",
+        )
+
+
+class SLATrackingNotFoundError(NotFoundError):
+    """SLA tracking record for the specified incident does not exist."""
+
+    def __init__(self, resource_id: str | UUID | None = None, message: str | None = None) -> None:
+        super().__init__(
+            resource_type="IncidentSLATracking",
+            resource_id=resource_id,
+            message=message,
+            error_code="SLA_TRACKING_NOT_FOUND",
+        )
+
+
+class NotificationNotFoundError(NotFoundError):
+    """Requested notification record does not exist."""
+
+    def __init__(self, resource_id: str | UUID | None = None, message: str | None = None) -> None:
+        super().__init__(
+            resource_type="Notification",
+            resource_id=resource_id,
+            message=message,
+            error_code="NOTIFICATION_NOT_FOUND",
+        )
+
+
+class DuplicateSLAPolicyError(BusinessRuleError):
+    """An SLA policy for the specified priority already exists."""
+
+    def __init__(self, message: str = "An SLA policy for this priority already exists.") -> None:
+        super().__init__(message=message, error_code="DUPLICATE_SLA_POLICY")

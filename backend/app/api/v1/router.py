@@ -6,7 +6,8 @@ Route paths adhere to shared team contracts:
 - M3 Assignment:  /api/v1/incidents/{incident_id}/assign
 - M1 Auth/User:   /api/v1/auth/*, /api/v1/users (Extension points documented)
 - M2 Incidents:   /api/v1/incidents (Extension points documented)
-- M4 SLA/Audit:   /api/v1/incidents/{id}/sla, /api/v1/notifications (Extension points documented)
+- M4 SLA/Audit:   /api/v1/incidents/{id}/sla, /api/v1/sla/violations,
+                  /api/v1/notifications, /api/v1/incidents/{id}/audit
 """
 
 from __future__ import annotations
@@ -15,11 +16,14 @@ from fastapi import APIRouter
 
 from app.api.v1 import (
     assignment,
+    audit,
     auth,
     categories,
     incidents,
+    notifications,
     reports,
     services,
+    sla,
     technicians,
     users,
 )
@@ -32,6 +36,11 @@ router.include_router(assignment.router)
 
 # ── Module 2: Incidents Management ───────────────────────────────────────────
 router.include_router(incidents.router)
+
+# ── Module 4: SLA, Notifications & Audit ──────────────────────────────────────
+router.include_router(sla.router)
+router.include_router(notifications.router)
+router.include_router(audit.router)
 
 # ── Module 1: Platform, Identity, Services & Categories ───────────────────────
 router.include_router(auth.router, prefix="/auth")
@@ -52,8 +61,3 @@ router.include_router(reports.router, prefix="/reports")
 # Module 2 (Incidents, Lifecycle, Comments, Duplicate Detection) will attach:
 #   from app.api.v1 import incidents
 #   router.include_router(incidents.router, prefix="/incidents", tags=["Incidents"])
-#
-# Module 4 (SLA, Notifications, Audit) will attach:
-#   from app.api.v1 import sla, notifications, audit
-#   router.include_router(sla.router, prefix="/sla", tags=["SLA"])
-#   router.include_router(notifications.router, prefix="/notifications", tags=["Notifications"])

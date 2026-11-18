@@ -5,6 +5,7 @@ Provides:
 - In-memory async SQLite engine & session for isolated repository and API tests.
 - FastAPI test client (`httpx.AsyncClient` with `ASGITransport`).
 - Pre-configured test doubles: `MockLLMProvider`, `StubIncidentService`, `InProcessEventBus`.
+- Member 4 repositories and services (`sla_service`, `audit_service`, `notification_service`).
 """
 
 from __future__ import annotations
@@ -27,13 +28,23 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+# Register all ORM models with SQLAlchemy metadata before create_all
+import app.infrastructure.database.models  # noqa: F401
+import app.infrastructure.database.sla_models  # noqa: F401
 from app.api.deps import (
     get_assignment_service,
+    get_audit_log_repository,
+    get_audit_service,
     get_db_session,
     get_event_publisher,
     get_incident_service_boundary,
     get_llm_provider,
+    get_notification_repository,
+    get_notification_service,
     get_recommendation_service,
+    get_sla_policy_repository,
+    get_sla_service,
+    get_sla_tracking_repository,
     get_technician_repository,
     get_technician_service,
     get_incident_service
@@ -42,10 +53,19 @@ from app.application.assignment.service import (
     SmartTechnicianRecommendationService,
     TechnicianAssignmentService,
 )
+from app.application.sla.audit_service import AuditService
+from app.application.sla.notification_service import NotificationService
+from app.application.sla.sla_service import SLAService
 from app.application.technician.service import TechnicianProfileService
 import app.infrastructure.database.incident_models
 from app.infrastructure.database.base import Base
 from app.infrastructure.events.event_bus import InProcessEventBus
+from app.infrastructure.repositories.sla_repository import (
+    SQLAlchemyAuditLogRepository,
+    SQLAlchemyNotificationRepository,
+    SQLAlchemySLAPolicyRepository,
+    SQLAlchemySLATrackingRepository,
+)
 from app.infrastructure.repositories.technician_repository import (
     SQLAlchemyTechnicianRepository,
 )
@@ -158,6 +178,34 @@ def assign_service(
     )
 
 
+# ── Member 4 Fixtures ────────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def sla_service(
+    db_session: AsyncSession,
+    event_bus: InProcessEventBus,
+) -> SLAService:
+    """Return an SLAService connected to the isolated test session."""
+    return SLAService(
+        policy_repo=SQLAlchemySLAPolicyRepository(db_session),
+        tracking_repo=SQLAlchemySLATrackingRepository(db_session),
+        event_publisher=event_bus,
+    )
+
+
+@pytest.fixture
+def audit_service(db_session: AsyncSession) -> AuditService:
+    """Return an AuditService connected to the isolated test session."""
+    return AuditService(audit_repo=SQLAlchemyAuditLogRepository(db_session))
+
+
+@pytest.fixture
+def notification_service(db_session: AsyncSession) -> NotificationService:
+    """Return a NotificationService connected to the isolated test session."""
+    return NotificationService(notification_repo=SQLAlchemyNotificationRepository(db_session))
+
+
 @pytest_asyncio.fixture
 async def async_client(
     db_session: AsyncSession,
@@ -170,7 +218,7 @@ async def async_client(
     """
     app = create_app()
 
-    # Create scoped test services
+    # Create scoped test services (M3 + M4)
     repo = SQLAlchemyTechnicianRepository(db_session)
 
     incident_repo = SQLAlchemyIncidentRepository(db_session)
@@ -194,6 +242,15 @@ async def async_client(
         event_bus,
     )
 
+    policy_repo = SQLAlchemySLAPolicyRepository(db_session)
+    tracking_repo = SQLAlchemySLATrackingRepository(db_session)
+    audit_repo = SQLAlchemyAuditLogRepository(db_session)
+    notif_repo = SQLAlchemyNotificationRepository(db_session)
+
+    s_svc = SLAService(policy_repo, tracking_repo, event_bus)
+    aud_svc = AuditService(audit_repo)
+    n_svc = NotificationService(notif_repo)
+
     # Override dependencies
     app.dependency_overrides[get_db_session] = lambda: db_session
     app.dependency_overrides[get_technician_repository] = lambda: repo
@@ -204,6 +261,14 @@ async def async_client(
     app.dependency_overrides[get_technician_service] = lambda: t_svc
     app.dependency_overrides[get_recommendation_service] = lambda: r_svc
     app.dependency_overrides[get_assignment_service] = lambda: a_svc
+
+    app.dependency_overrides[get_sla_policy_repository] = lambda: policy_repo
+    app.dependency_overrides[get_sla_tracking_repository] = lambda: tracking_repo
+    app.dependency_overrides[get_audit_log_repository] = lambda: audit_repo
+    app.dependency_overrides[get_notification_repository] = lambda: notif_repo
+    app.dependency_overrides[get_sla_service] = lambda: s_svc
+    app.dependency_overrides[get_audit_service] = lambda: aud_svc
+    app.dependency_overrides[get_notification_service] = lambda: n_svc
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:

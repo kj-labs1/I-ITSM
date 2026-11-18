@@ -200,3 +200,16 @@ class IncidentCategoryModel(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     def __repr__(self) -> str:
         return f"<IncidentCategoryModel(category={self.category}, required_skill={self.required_skill})>"
+
+
+# Re-export Member 2 and Member 4 models for unified database metadata discovery
+from app.infrastructure.database.incident_models import (  # noqa: E402, F401
+    IncidentCommentModel,
+    IncidentModel,
+)
+from app.infrastructure.database.sla_models import (  # noqa: E402, F401
+    AuditLogModel,
+    IncidentSLATrackingModel,
+    NotificationModel,
+    SLAPolicyModel,
+)
