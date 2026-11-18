@@ -11,7 +11,7 @@ from alembic import op
 from sqlalchemy.types import Uuid
 
 # Revision identifiers
-revision: str = "003_add_services_and_incident_categories"
+revision: str = "003_services_and_categories"
 down_revision: str | None = "002_create_users"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None

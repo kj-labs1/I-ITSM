@@ -20,8 +20,8 @@ from alembic import op
 from sqlalchemy.types import Uuid
 
 # revision identifiers, used by Alembic.
-revision: str = "005_create_sla_audit_notifications"
-down_revision: str | None = "004_create_incidents_and_comments"
+revision: str = "005_sla_audit_notifications"
+down_revision: str | None = "004_incidents_and_comments"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -13,9 +13,9 @@ from sqlalchemy.types import Uuid
 
 
 # Revision identifiers.
-revision: str = "004_create_incidents_and_comments"
+revision: str = "004_incidents_and_comments"
 
-down_revision: str | None = "003_add_services_and_incident_categories"
+down_revision: str | None = "003_services_and_categories"
 
 branch_labels: str | Sequence[str] | None = None
 
