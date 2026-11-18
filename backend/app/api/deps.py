@@ -14,6 +14,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from fastapi import Depends
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.assignment.service import (
@@ -35,6 +36,7 @@ from app.application.sla.audit_service import AuditService
 from app.application.sla.notification_service import NotificationService
 from app.application.sla.sla_service import SLAService
 from app.application.technician.service import TechnicianProfileService
+from app.core.security import decode_access_token
 from app.infrastructure.database.session import get_db_session
 from app.infrastructure.events.event_bus import get_event_bus
 from app.infrastructure.repositories.incident_repository import (
@@ -236,12 +238,24 @@ def get_notification_service(
 # ============================================================
 
 
-async def get_actor_user_id() -> UUID:
-    """
-    Return the authenticated actor's UUID.
+_optional_oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="api/v1/auth/login",
+    auto_error=False,
+)
 
-    Temporary development implementation until Member 1's
-    authentication and JWT dependencies are integrated.
+
+async def get_actor_user_id(
+    token: str | None = Depends(_optional_oauth2_scheme),
+) -> UUID:
     """
+    Return the authenticated actor's UUID from JWT token when present,
+    falling back to test placeholder when unauthenticated.
+    """
+    if token:
+        try:
+            payload = decode_access_token(token)
+            return UUID(payload["sub"])
+        except Exception:
+            pass
 
     return UUID("00000000-0000-0000-0000-000000000001")
