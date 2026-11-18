@@ -25,12 +25,20 @@ class TechnicianRepository(ABC):
     """
 
     @abstractmethod
-    async def get_by_id(self, technician_id: UUID) -> Technician | None:
+    async def get_by_id(
+        self,
+        technician_id: UUID,
+        for_update: bool = False,
+    ) -> Technician | None:
         """Retrieve a technician domain entity by its profile ID."""
         ...
 
     @abstractmethod
-    async def get_by_user_id(self, user_id: UUID) -> Technician | None:
+    async def get_by_user_id(
+        self,
+        user_id: UUID,
+        for_update: bool = False,
+    ) -> Technician | None:
         """Retrieve a technician domain entity by its shared User UUID."""
         ...
 

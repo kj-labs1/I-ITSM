@@ -65,22 +65,34 @@ class SQLAlchemyTechnicianRepository(TechnicianRepository):
         )
         return tech
 
-    async def get_by_id(self, technician_id: UUID) -> Technician | None:
+    async def get_by_id(
+        self,
+        technician_id: UUID,
+        for_update: bool = False,
+    ) -> Technician | None:
         stmt = (
             select(TechnicianModel)
             .options(selectinload(TechnicianModel.skills))
             .where(TechnicianModel.id == technician_id)
         )
+        if for_update:
+            stmt = stmt.with_for_update()
         result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()
         return self._to_domain(model) if model else None
 
-    async def get_by_user_id(self, user_id: UUID) -> Technician | None:
+    async def get_by_user_id(
+        self,
+        user_id: UUID,
+        for_update: bool = False,
+    ) -> Technician | None:
         stmt = (
             select(TechnicianModel)
             .options(selectinload(TechnicianModel.skills))
             .where(TechnicianModel.user_id == user_id)
         )
+        if for_update:
+            stmt = stmt.with_for_update()
         result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()
         return self._to_domain(model) if model else None

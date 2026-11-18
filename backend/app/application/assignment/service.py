@@ -15,6 +15,7 @@ OOP Design Decisions:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from uuid import UUID
@@ -230,6 +231,8 @@ class TechnicianAssignmentService:
     Coordinates technician assignment validation and execution.
     """
 
+    _tech_locks: dict[UUID, asyncio.Lock] = {}
+
     def __init__(
         self,
         technician_repo: TechnicianRepository,
@@ -239,6 +242,12 @@ class TechnicianAssignmentService:
         self.technician_repo = technician_repo
         self.incident_service = incident_service
         self.event_publisher = event_publisher
+
+    @classmethod
+    def _get_technician_lock(cls, technician_id: UUID) -> asyncio.Lock:
+        if technician_id not in cls._tech_locks:
+            cls._tech_locks[technician_id] = asyncio.Lock()
+        return cls._tech_locks[technician_id]
 
     async def assign_technician(
         self,
@@ -280,11 +289,11 @@ class TechnicianAssignmentService:
                 f"Incident {incident.incident_code} in status '{incident.status.value}' cannot be assigned."
             )
 
-        # Step 2: Validate Technician
-        tech = await self.technician_repo.get_by_id(technician_id)
+        # Step 2: Validate Technician (row lock prevents concurrent oversubscription)
+        tech = await self.technician_repo.get_by_id(technician_id, for_update=True)
         if tech is None:
             # Also check by user_id
-            tech = await self.technician_repo.get_by_user_id(technician_id)
+            tech = await self.technician_repo.get_by_user_id(technician_id, for_update=True)
             if tech is None:
                 raise TechnicianNotFoundError(resource_id=str(technician_id))
 
@@ -298,22 +307,24 @@ class TechnicianAssignmentService:
                 f"Technician {tech.id} lacks required skill '{incident.required_skill}'."
             )
 
-        # Check workload & capacity
-        active_count = await self.incident_service.get_active_incident_count(tech.user_id)
-        tech.update_active_incident_count(active_count)
-        if not tech.has_capacity:
-            raise CapacityExceededError(
-                f"Technician {tech.id} has reached maximum capacity ({tech.active_incident_count}/{tech.max_capacity})."
-            )
+        # Check workload & capacity inside synchronized block
+        lock = self._get_technician_lock(tech.user_id)
+        async with lock:
+            active_count = await self.incident_service.get_active_incident_count(tech.user_id)
+            tech.update_active_incident_count(active_count)
+            if not tech.has_capacity:
+                raise CapacityExceededError(
+                    f"Technician {tech.id} has reached maximum capacity ({tech.active_incident_count}/{tech.max_capacity})."
+                )
 
-        # Step 3: Delegate state change to Member 2 boundary
-        success = await self.incident_service.assign_technician(
-            incident_id=incident.id,
-            technician_id=tech.user_id,
-            actor_id=actor_id,
-        )
-        if not success:
-            raise InvalidAssignmentError("Incident service rejected assignment operation.")
+            # Step 3: Delegate state change to Member 2 boundary
+            success = await self.incident_service.assign_technician(
+                incident_id=incident.id,
+                technician_id=tech.user_id,
+                actor_id=actor_id,
+            )
+            if not success:
+                raise InvalidAssignmentError("Incident service rejected assignment operation.")
 
         # Step 4: Observer Pattern — Publish IncidentAssignedEvent for Member 4
         assigned_event = IncidentAssignedEvent(

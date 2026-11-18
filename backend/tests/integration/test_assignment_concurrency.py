@@ -200,12 +200,21 @@ async def test_concurrent_assignments_cannot_exceed_technician_capacity(
         inc_a_id = inc_a.id
         inc_b_id = inc_b.id
 
-    async def _assign_to_tech(inc_id: uuid4):
+    barrier = asyncio.Barrier(2)
+
+    async def _assign_worker(inc_id: uuid4):
         async with session_factory() as session:
             t_repo = SQLAlchemyTechnicianRepository(session)
             i_repo = SQLAlchemyIncidentRepository(session)
             i_svc = IncidentApplicationService(i_repo, event_bus)
             a_svc = TechnicianAssignmentService(t_repo, i_svc, event_bus)
+
+            # Check initial active count before either assignment completes
+            initial_count = await i_svc.get_active_incident_count(tech.user_id)
+            assert initial_count == 0
+
+            # Synchronize with barrier to force simultaneous assignment attempt
+            await barrier.wait()
 
             try:
                 res = await a_svc.assign_technician(
@@ -223,9 +232,8 @@ async def test_concurrent_assignments_cannot_exceed_technician_capacity(
                 await session.rollback()
                 return ("OTHER_ERROR", str(e))
 
-    # Sequential execution: first assignment succeeds, second reaches capacity limit
-    res_1 = await _assign_to_tech(inc_a_id)
-    res_2 = await _assign_to_tech(inc_b_id)
+    results = await asyncio.gather(_assign_worker(inc_a_id), _assign_worker(inc_b_id))
+    outcomes = [r[0] for r in results]
 
-    assert res_1[0] == "SUCCESS"
-    assert res_2[0] == "CAPACITY_ERROR"
+    assert outcomes.count("SUCCESS") == 1
+    assert outcomes.count("CAPACITY_ERROR") == 1
