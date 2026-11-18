@@ -1,86 +1,173 @@
-import React from "react";
+import React, { useState } from "react";
 
 export default function ResolutionPanel({
     incident,
+    currentUser,
     onStatusChange,
     saving = false,
 }) {
+    const [resolutionText, setResolutionText] = useState("");
+    const [actionError, setActionError] = useState("");
+
     if (!incident) return null;
 
     const status = incident.status;
+    const role = currentUser?.role || "EMPLOYEE";
+    const isTech = role === "TECHNICIAN";
+    const isAdmin = role === "ADMIN";
+    const isEmp = role === "EMPLOYEE";
 
-    if (!["RESOLVED", "VERIFIED", "CLOSED"].includes(status)) {
-        return (
-            <section className="employee-section">
-                <h2>Resolution</h2>
-
-                <p className="employee-muted">
-                    Resolution details will appear here after
-                    the assigned technician resolves the incident.
-                </p>
-            </section>
-        );
-    }
+    const handleAction = async (newStatus, extraPayload = {}) => {
+        setActionError("");
+        try {
+            await onStatusChange(newStatus, extraPayload);
+        } catch (err) {
+            setActionError(err.message || "Failed to update incident status.");
+        }
+    };
 
     return (
         <section className="employee-section">
-            <h2>Resolution</h2>
+            <h2>Incident Resolution & Lifecycle Actions</h2>
 
-            <div className="employee-resolution-box">
-                <p className="employee-resolution-label">
-                    Technician's resolution details
-                </p>
-
-                <p>
-                    {incident.resolutionDetails ||
-                        "No resolution details were provided."}
-                </p>
-            </div>
-
-            {status === "RESOLVED" && (
-                <div className="employee-resolution-action">
-                    <p>
-                        Please verify whether the reported issue
-                        has been resolved.
-                    </p>
-
-                    <button
-                        type="button"
-                        disabled={saving}
-                        className="employee-button employee-button-primary"
-                        onClick={() => onStatusChange("VERIFIED")}
-                    >
-                        {saving
-                            ? "Updating..."
-                            : "Verify resolution"}
-                    </button>
+            {actionError && (
+                <div className="employee-alert employee-alert-error" style={{ marginBottom: "16px" }}>
+                    {actionError}
                 </div>
             )}
 
-            {status === "VERIFIED" && (
-                <div className="employee-resolution-action">
-                    <p>
-                        The resolution has been verified.
-                        You can now close this incident.
+            {/* Display resolution details if present */}
+            {["RESOLVED", "VERIFIED", "CLOSED"].includes(status) && (
+                <div className="employee-resolution-box" style={{ marginBottom: "20px" }}>
+                    <p className="employee-resolution-label">
+                        Technician's resolution details
                     </p>
-
-                    <button
-                        type="button"
-                        disabled={saving}
-                        className="employee-button employee-button-primary"
-                        onClick={() => onStatusChange("CLOSED")}
-                    >
-                        {saving
-                            ? "Closing..."
-                            : "Close incident"}
-                    </button>
+                    <p>
+                        {incident.resolutionDetails || "No resolution details were provided."}
+                    </p>
                 </div>
             )}
 
-            {status === "CLOSED" && (
-                <p className="employee-success">
-                    This incident has been successfully closed.
-                </p>
+            {/* TECHNICIAN & ADMIN ACTIONS */}
+            {(isTech || isAdmin) && (
+                <>
+                    {status === "ASSIGNED" && (
+                        <div className="employee-resolution-action">
+                            <p>
+                                This incident has been assigned to you. Acknowledge receipt to notify the team.
+                            </p>
+                            <button
+                                type="button"
+                                disabled={saving}
+                                className="employee-button employee-button-primary"
+                                onClick={() => handleAction("ACKNOWLEDGED")}
+                            >
+                                {saving ? "Acknowledging..." : "✓ Acknowledge Incident"}
+                            </button>
+                        </div>
+                    )}
+
+                    {status === "ACKNOWLEDGED" && (
+                        <div className="employee-resolution-action">
+                            <p>
+                                Incident acknowledged. When you begin working on this issue, start active resolution work.
+                            </p>
+                            <button
+                                type="button"
+                                disabled={saving}
+                                className="employee-button employee-button-primary"
+                                onClick={() => handleAction("IN_PROGRESS")}
+                            >
+                                {saving ? "Starting..." : "▶ Start Work (In Progress)"}
+                            </button>
+                        </div>
+                    )}
+
+                    {status === "IN_PROGRESS" && (
+                        <div className="employee-resolution-action" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                            <p>
+                                Active work is in progress. Enter detailed resolution steps before marking as resolved:
+                            </p>
+                            <textarea
+                                className="employee-textarea"
+                                rows={4}
+                                style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #d0d7de" }}
+                                placeholder="Describe the resolution steps taken (required)..."
+                                value={resolutionText}
+                                onChange={(e) => setResolutionText(e.target.value)}
+                            />
+                            <div>
+                                <button
+                                    type="button"
+                                    disabled={saving || !resolutionText.trim()}
+                                    className="employee-button employee-button-primary"
+                                    onClick={() => handleAction("RESOLVED", { resolutionDetails: resolutionText })}
+                                >
+                                    {saving ? "Resolving..." : "✔ Mark Incident as Resolved"}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {status === "RESOLVED" && isTech && !isAdmin && (
+                        <p className="employee-muted">
+                            Incident marked as RESOLVED. Awaiting employee verification.
+                        </p>
+                    )}
+                </>
+            )}
+
+            {/* EMPLOYEE & ADMIN ACTIONS */}
+            {(isEmp || isAdmin) && (
+                <>
+                    {status === "RESOLVED" && (
+                        <div className="employee-resolution-action">
+                            <p>
+                                Please test and verify whether the reported issue has been completely resolved.
+                            </p>
+                            <button
+                                type="button"
+                                disabled={saving}
+                                className="employee-button employee-button-primary"
+                                onClick={() => handleAction("VERIFIED")}
+                            >
+                                {saving ? "Verifying..." : "✓ Verify Resolution"}
+                            </button>
+                        </div>
+                    )}
+
+                    {status === "VERIFIED" && (
+                        <div className="employee-resolution-action">
+                            <p>
+                                The resolution has been verified. You can now permanently close this incident.
+                            </p>
+                            <button
+                                type="button"
+                                disabled={saving}
+                                className="employee-button employee-button-primary"
+                                onClick={() => handleAction("CLOSED")}
+                            >
+                                {saving ? "Closing..." : "🔒 Close Incident"}
+                            </button>
+                        </div>
+                    )}
+
+                    {status === "CLOSED" && (
+                        <p className="employee-success" style={{ color: "#1a7f37", fontWeight: 600 }}>
+                            ✔ This incident has been successfully closed and archived.
+                        </p>
+                    )}
+
+                    {!["RESOLVED", "VERIFIED", "CLOSED"].includes(status) && isEmp && (
+                        <p className="employee-muted">
+                            {status === "NEW" && "Incident has been reported and is awaiting triage."}
+                            {status === "CLASSIFIED" && "Incident is classified and awaiting technician assignment."}
+                            {status === "ASSIGNED" && "Incident is assigned to a technician."}
+                            {status === "ACKNOWLEDGED" && "Technician has acknowledged this incident."}
+                            {status === "IN_PROGRESS" && "Technician is actively investigating and working on resolution."}
+                        </p>
+                    )}
+                </>
             )}
         </section>
     );

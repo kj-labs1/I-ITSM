@@ -13,10 +13,10 @@ from __future__ import annotations
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import (
-    get_actor_user_id,
+    get_actor_identity,
     get_assignment_service,
 )
 from app.api.v1.schemas import (
@@ -26,6 +26,8 @@ from app.api.v1.schemas import (
 from app.application.assignment.service import (
     TechnicianAssignmentService,
 )
+from app.domain.identity.user import UserIdentity
+from app.shared.enums import UserRole
 
 logger = logging.getLogger(__name__)
 
@@ -45,14 +47,20 @@ router = APIRouter(tags=["Assignment"])
 async def assign_technician_to_incident(
     incident_id: UUID,
     payload: AssignTechnicianRequest,
-    actor_id: UUID = Depends(get_actor_user_id),
+    actor: UserIdentity = Depends(get_actor_identity),
     assignment_service: TechnicianAssignmentService = Depends(get_assignment_service),
 ) -> AssignTechnicianResponse:
     """Execute validated incident assignment."""
+    if actor.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can assign technicians to incidents.",
+        )
+
     res = await assignment_service.assign_technician(
         incident_id=incident_id,
         technician_id=payload.technician_id,
-        actor_id=actor_id,
+        actor_id=actor.id,
         strategy_used=payload.strategy_used,
         reason=payload.reason,
     )

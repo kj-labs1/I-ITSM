@@ -19,10 +19,10 @@ import logging
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.deps import (
-    get_actor_user_id,
+    get_actor_identity,
     get_incident_service,
 )
 from app.api.v1.schemas import (
@@ -39,12 +39,14 @@ from app.application.incident.service import IncidentApplicationService
 from app.core.exceptions import (
     AuthorizationError,
 )
+from app.domain.identity.user import UserIdentity
 from app.domain.incident.incident import Incident
 from app.domain.incident.incident_comment import IncidentComment
 from app.shared.enums import (
     IncidentCategory,
     IncidentStatus,
     Priority,
+    UserRole,
 )
 
 logger = logging.getLogger(__name__)
@@ -101,20 +103,16 @@ def _to_comment_response(
 
 def _check_incident_access(
     incident: Incident,
-    actor_id: UUID,
+    actor: UserIdentity,
 ) -> None:
     """
-    Ensure that the actor participates in the incident.
-
-    Until Member 1's full role-based authorization is integrated,
-    access is limited to the reporter or assigned technician.
+    Ensure that the actor participates in the incident or has administrative privileges.
     """
+    if actor.role == UserRole.ADMIN:
+        return
 
-    is_reporter = incident.reporter_id == actor_id
-
-    is_assigned_technician = (
-        incident.assigned_technician_id == actor_id
-    )
+    is_reporter = incident.reporter_id == actor.id
+    is_assigned_technician = incident.assigned_technician_id == actor.id
 
     if not (is_reporter or is_assigned_technician):
         raise AuthorizationError(
@@ -135,13 +133,18 @@ def _check_incident_access(
 )
 async def create_incident(
     payload: IncidentCreateRequest,
-    actor_id: UUID = Depends(get_actor_user_id),
+    actor: UserIdentity = Depends(get_actor_identity),
     service: IncidentApplicationService = Depends(get_incident_service),
 ) -> IncidentResponse:
     """Create an incident reported by the authenticated user."""
+    if actor.role == UserRole.TECHNICIAN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Technicians are not permitted to report incidents.",
+        )
 
     incident = await service.create_incident(
-        reporter_id=actor_id,
+        reporter_id=actor.id,
         service_id=payload.service_id,
         category=payload.category,
         required_skill=payload.required_skill,
@@ -164,28 +167,20 @@ async def create_incident(
 async def get_incident_details(
     incident_id: UUID,
     svc: IncidentApplicationService = Depends(get_incident_service),
-    actor_id: UUID = Depends(get_actor_user_id),
+    actor: UserIdentity = Depends(get_actor_identity),
 ):
     """Retrieve an incident along with its comments."""
-
     incident, comments = await svc.get_incident_details(incident_id)
 
-    # Only the reporter or assigned technician can access the details.
-    if (
-        incident.reporter_id != actor_id
-        and incident.assigned_technician_id != actor_id
-    ):
-        raise AuthorizationError(
-            "You are not authorized to view this incident."
-        )
+    _check_incident_access(incident, actor)
 
     return IncidentDetailsResponse(
-    **_to_incident_response(incident).model_dump(),
-    comments=[
-        _to_comment_response(comment)
-        for comment in comments
-    ],
-)
+        **_to_incident_response(incident).model_dump(),
+        comments=[
+            _to_comment_response(comment)
+            for comment in comments
+        ],
+    )
 
 @router.get("", response_model=list[IncidentResponse])
 async def list_incidents(
@@ -223,14 +218,23 @@ async def list_incidents(
     ),
 
     svc: IncidentApplicationService = Depends(get_incident_service),
-    actor_id: UUID = Depends(get_actor_user_id),
+    actor: UserIdentity = Depends(get_actor_identity),
 ):
-    """List the current reporter's incidents using optional filters."""
+    """List incidents matching role-based visibility and optional search filters."""
+    if actor.role == UserRole.TECHNICIAN:
+        filter_reporter_id = None
+        filter_assigned_tech_id = actor.id
+    elif actor.role == UserRole.EMPLOYEE:
+        filter_reporter_id = actor.id
+        filter_assigned_tech_id = assigned_technician_id
+    else:
+        filter_reporter_id = None
+        filter_assigned_tech_id = assigned_technician_id
 
     incidents = await svc.list_incidents(
         skip=skip,
         limit=limit,
-        reporter_id=actor_id,
+        reporter_id=filter_reporter_id,
         incident_id=incident_id,
         incident_code=incident_code,
         date_from=date_from,
@@ -239,7 +243,7 @@ async def list_incidents(
         priority=priority,
         category=category,
         service_id=service_id,
-        assigned_technician_id=assigned_technician_id,
+        assigned_technician_id=filter_assigned_tech_id,
     )
 
     return [
@@ -260,24 +264,15 @@ async def list_incidents(
 async def get_potential_duplicates(
     incident_id: UUID,
     svc: IncidentApplicationService = Depends(get_incident_service),
-    actor_id: UUID = Depends(get_actor_user_id),
+    actor: UserIdentity = Depends(get_actor_identity),
 ):
     """
     Retrieve possible duplicates of an incident.
-
-    Only the incident reporter or its assigned technician
-    can request this information under the current access rules.
     """
 
     incident = await svc.get_incident_entity(incident_id)
 
-    if (
-        incident.reporter_id != actor_id
-        and incident.assigned_technician_id != actor_id
-    ):
-        raise AuthorizationError(
-            "You are not authorized to view this incident's duplicates."
-        )
+    _check_incident_access(incident, actor)
 
     matches = await svc.find_potential_duplicates(incident_id)
 
@@ -309,17 +304,16 @@ async def get_potential_duplicates(
 async def update_incident(
     incident_id: UUID,
     payload: IncidentUpdateRequest,
-    actor_id: UUID = Depends(get_actor_user_id),
+    actor: UserIdentity = Depends(get_actor_identity),
     service: IncidentApplicationService = Depends(get_incident_service),
 ) -> IncidentResponse:
     """Update permitted incident fields."""
 
     existing = await service.get_incident_entity(incident_id)
 
-    # Only the reporter can edit the incident information.
-    if existing.reporter_id != actor_id:
+    if actor.role != UserRole.ADMIN and existing.reporter_id != actor.id:
         raise AuthorizationError(
-            "Only the incident reporter can update its information."
+            "Only the incident reporter or an administrator can update its information."
         )
 
     changes = payload.model_dump(exclude_unset=True)
@@ -345,24 +339,43 @@ async def update_incident(
 async def update_incident_status(
     incident_id: UUID,
     payload: IncidentStatusUpdateRequest,
-    actor_id: UUID = Depends(get_actor_user_id),
+    actor: UserIdentity = Depends(get_actor_identity),
     service: IncidentApplicationService = Depends(get_incident_service),
 ) -> IncidentResponse:
     """
-    Change status using the IncidentLifecycle state machine.
-
-    Resolution details are mandatory when the requested status
-    is RESOLVED.
+    Change status using the IncidentLifecycle state machine with role enforcement.
     """
 
     existing = await service.get_incident_entity(incident_id)
 
-    _check_incident_access(existing, actor_id)
+    if actor.role == UserRole.ADMIN:
+        pass
+    elif actor.role == UserRole.TECHNICIAN:
+        if existing.assigned_technician_id != actor.id:
+            raise AuthorizationError("Technicians can only update status for incidents assigned to them.")
+        allowed_tech_statuses = {
+            IncidentStatus.ACKNOWLEDGED,
+            IncidentStatus.IN_PROGRESS,
+            IncidentStatus.RESOLVED,
+        }
+        if payload.status not in allowed_tech_statuses:
+            raise AuthorizationError(f"Technicians cannot transition incident to '{payload.status.value}'.")
+    elif actor.role == UserRole.EMPLOYEE:
+        if existing.reporter_id != actor.id:
+            raise AuthorizationError("Employees can only verify or close their own reported incidents.")
+        allowed_emp_statuses = {
+            IncidentStatus.VERIFIED,
+            IncidentStatus.CLOSED,
+        }
+        if payload.status not in allowed_emp_statuses:
+            raise AuthorizationError(f"Employees cannot transition incident to '{payload.status.value}'.")
+    else:
+        raise AuthorizationError("Unauthorized to update incident status.")
 
     updated = await service.update_incident_status(
         incident_id=incident_id,
         new_status=payload.status,
-        actor_id=actor_id,
+        actor_id=actor.id,
         resolution_details=payload.resolution_details,
     )
 
@@ -383,18 +396,18 @@ async def update_incident_status(
 async def add_incident_comment(
     incident_id: UUID,
     payload: IncidentCommentCreateRequest,
-    actor_id: UUID = Depends(get_actor_user_id),
+    actor: UserIdentity = Depends(get_actor_identity),
     service: IncidentApplicationService = Depends(get_incident_service),
 ) -> IncidentCommentResponse:
     """Add a comment to an incident."""
 
     existing = await service.get_incident_entity(incident_id)
 
-    _check_incident_access(existing, actor_id)
+    _check_incident_access(existing, actor)
 
     comment = await service.add_comment(
         incident_id=incident_id,
-        author_id=actor_id,
+        author_id=actor.id,
         content=payload.content,
     )
 

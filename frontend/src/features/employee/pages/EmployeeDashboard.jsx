@@ -45,16 +45,12 @@ export default function EmployeeDashboard({
     const navigate = (path) => {
         if (onNavigate) {
             onNavigate(path);
-        } else {
-            window.location.assign(path);
         }
     };
 
     const openIncident = (id) => {
         if (onOpenIncident) {
             onOpenIncident(id);
-        } else {
-            navigate(`/employee/incidents/${id}`);
         }
     };
 

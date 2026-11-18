@@ -16,9 +16,13 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.deps import get_sla_service
+from app.api.deps import (
+    get_actor_identity,
+    get_incident_service,
+    get_sla_service,
+)
 from app.api.v1.sla_schemas import (
     IncidentSLAResponse,
     SLACheckSummaryResponse,
@@ -27,10 +31,12 @@ from app.api.v1.sla_schemas import (
     SLAPolicyUpdateRequest,
     SLATrackingStartRequest,
 )
+from app.application.incident.service import IncidentApplicationService
 from app.application.sla.sla_service import SLAService
+from app.domain.identity.user import UserIdentity
 from app.domain.sla.policy import SLAPolicy
 from app.domain.sla.tracking import IncidentSLATracking
-from app.shared.enums import Priority
+from app.shared.enums import Priority, UserRole
 
 router = APIRouter(tags=["SLA"])
 
@@ -80,9 +86,18 @@ def _tracking_to_response(tracking: IncidentSLATracking) -> IncidentSLAResponse:
 )
 async def get_incident_sla(
     incident_id: UUID,
+    actor: UserIdentity = Depends(get_actor_identity),
     sla_service: SLAService = Depends(get_sla_service),
+    incident_service: IncidentApplicationService = Depends(get_incident_service),
 ) -> IncidentSLAResponse:
     """Retrieve SLA deadlines, remaining time, and breach status for an incident."""
+    if actor.role != UserRole.ADMIN:
+        incident = await incident_service.get_incident_entity(incident_id)
+        if incident.reporter_id != actor.id and incident.assigned_technician_id != actor.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden: You cannot view SLA tracking for this incident.",
+            )
     tracking = await sla_service.get_incident_sla(incident_id)
     return _tracking_to_response(tracking)
 
@@ -96,9 +111,15 @@ async def get_incident_sla(
 async def start_incident_sla(
     incident_id: UUID,
     payload: SLATrackingStartRequest,
+    actor: UserIdentity = Depends(get_actor_identity),
     sla_service: SLAService = Depends(get_sla_service),
 ) -> IncidentSLAResponse:
     """Initialize SLA tracking for an incident using its priority's SLA policy."""
+    if actor.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can initialize SLA tracking manually.",
+        )
     tracking = await sla_service.start_tracking(
         incident_id=incident_id,
         priority=payload.priority,
@@ -121,9 +142,15 @@ async def list_sla_violations(
     priority: Priority | None = Query(default=None),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
+    actor: UserIdentity = Depends(get_actor_identity),
     sla_service: SLAService = Depends(get_sla_service),
 ) -> list[IncidentSLAResponse]:
     """Return incidents that have breached (or are approaching) their SLA deadlines."""
+    if actor.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can list SLA violations.",
+        )
     records = await sla_service.list_violations(
         include_warnings=include_warnings,
         priority=priority,
@@ -154,9 +181,15 @@ async def list_sla_policies(
 )
 async def create_sla_policy(
     payload: SLAPolicyCreateRequest,
+    actor: UserIdentity = Depends(get_actor_identity),
     sla_service: SLAService = Depends(get_sla_service),
 ) -> SLAPolicyResponse:
     """Create a new SLA policy for a priority level."""
+    if actor.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can create SLA policies.",
+        )
     policy = await sla_service.create_policy(
         priority=payload.priority,
         name=payload.name,
@@ -176,9 +209,15 @@ async def create_sla_policy(
 async def update_sla_policy(
     priority: Priority,
     payload: SLAPolicyUpdateRequest,
+    actor: UserIdentity = Depends(get_actor_identity),
     sla_service: SLAService = Depends(get_sla_service),
 ) -> SLAPolicyResponse:
     """Update response/resolution target durations or warning threshold for a priority."""
+    if actor.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can update SLA policies.",
+        )
     policy = await sla_service.update_policy(
         priority=priority,
         name=payload.name,
@@ -196,9 +235,15 @@ async def update_sla_policy(
     summary="Run an on-demand SLA breach/warning evaluation sweep",
 )
 async def trigger_sla_check(
+    actor: UserIdentity = Depends(get_actor_identity),
     sla_service: SLAService = Depends(get_sla_service),
 ) -> SLACheckSummaryResponse:
     """Evaluate all active incident SLAs immediately and trigger alerts if needed."""
+    if actor.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can trigger SLA checks.",
+        )
     results = await sla_service.evaluate_active_slas()
     return SLACheckSummaryResponse(
         evaluated_count=len(results),

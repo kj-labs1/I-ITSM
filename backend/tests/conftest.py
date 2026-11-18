@@ -30,6 +30,7 @@ import app.infrastructure.database.incident_models
 import app.infrastructure.database.models  # noqa: F401
 import app.infrastructure.database.sla_models  # noqa: F401
 from app.api.deps import (
+    get_actor_identity,
     get_actor_user_id,
     get_assignment_service,
     get_audit_log_repository,
@@ -57,6 +58,7 @@ from app.application.sla.audit_service import AuditService
 from app.application.sla.notification_service import NotificationService
 from app.application.sla.sla_service import SLAService
 from app.application.technician.service import TechnicianProfileService
+from app.domain.identity.user import UserIdentity
 from app.infrastructure.database.base import Base
 from app.infrastructure.events.event_bus import InProcessEventBus
 from app.infrastructure.repositories.incident_repository import (
@@ -74,6 +76,7 @@ from app.infrastructure.repositories.technician_repository import (
 from app.integrations.incidents.stub_incident_service import StubIncidentService
 from app.integrations.llm.mock_provider import MockLLMProvider
 from app.main import create_app
+from app.shared.enums import UserRole
 
 
 @pytest.fixture(scope="session")
@@ -229,6 +232,7 @@ async def async_client(
         repository=incident_repo,
         event_publisher=event_bus,
     )
+    stub_incidents._fallback = incident_service
 
     t_svc = TechnicianProfileService(repo, stub_incidents, event_bus)
 
@@ -273,6 +277,15 @@ async def async_client(
     app.dependency_overrides[get_notification_service] = lambda: n_svc
 
     default_actor_id = UUID("00000000-0000-0000-0000-000000000001")
+    default_identity = UserIdentity(
+        id=default_actor_id,
+        username="test_admin",
+        email="test_admin@example.com",
+        full_name="Test Administrator",
+        role=UserRole.ADMIN,
+        is_active=True,
+    )
+    app.dependency_overrides[get_actor_identity] = lambda: default_identity
     app.dependency_overrides[get_actor_user_id] = lambda: default_actor_id
 
     transport = ASGITransport(app=app)

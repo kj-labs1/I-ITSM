@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.assignment.service import (
@@ -35,7 +35,9 @@ from app.application.sla.audit_service import AuditService
 from app.application.sla.notification_service import NotificationService
 from app.application.sla.sla_service import SLAService
 from app.application.technician.service import TechnicianProfileService
-from app.core.security import get_current_user_id
+from app.core.exceptions import AuthenticationError
+from app.core.security import decode_access_token, oauth2_scheme
+from app.domain.identity.user import UserIdentity
 from app.infrastructure.database.session import get_db_session
 from app.infrastructure.events.event_bus import get_event_bus
 from app.infrastructure.repositories.incident_repository import (
@@ -52,6 +54,7 @@ from app.infrastructure.repositories.technician_repository import (
 )
 from app.integrations.llm.factory import LLMProviderFactory
 from app.integrations.llm.provider import LLMProvider
+from app.shared.enums import UserRole
 
 # ============================================================
 # REPOSITORY DEPENDENCIES
@@ -237,8 +240,40 @@ def get_notification_service(
 # ============================================================
 
 
+async def get_actor_identity(
+    token: str = Depends(oauth2_scheme),
+) -> UserIdentity:
+    """Extract authenticated UserIdentity from validated JWT Bearer token claims."""
+    try:
+        payload = decode_access_token(token)
+        sub = payload.get("sub")
+        if not sub:
+            raise AuthenticationError("Token is missing the 'sub' claim.")
+        user_id = UUID(str(sub))
+        role_raw = payload.get("role", "EMPLOYEE")
+        try:
+            role = UserRole(role_raw)
+        except (ValueError, TypeError):
+            role = UserRole.EMPLOYEE
+
+        return UserIdentity(
+            id=user_id,
+            username=str(payload.get("username", "")),
+            email=str(payload.get("email", "")),
+            full_name=str(payload.get("full_name", "")),
+            role=role,
+            is_active=True,
+        )
+    except (AuthenticationError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+
+
 async def get_actor_user_id(
-    user_id: UUID = Depends(get_current_user_id),
+    identity: UserIdentity = Depends(get_actor_identity),
 ) -> UUID:
     """Return the authenticated actor's UUID from the validated JWT token."""
-    return user_id
+    return identity.id

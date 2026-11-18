@@ -22,8 +22,8 @@ class UserIdentity:
     """Read-only projection of a user from M1's identity module."""
 
     id: UUID
-    username: str
-    email: str
-    full_name: str
-    role: UserRole
+    username: str = ""
+    email: str = ""
+    full_name: str = ""
+    role: UserRole = UserRole.EMPLOYEE
     is_active: bool = True

@@ -26,10 +26,12 @@ logger = logging.getLogger(__name__)
 class StubIncidentService(IncidentServiceBoundary):
     """
     In-memory incident repository and lifecycle coordinator for development and testing.
+    Can fall back to a persistent IncidentServiceBoundary if an incident is not in memory.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, fallback: IncidentServiceBoundary | None = None) -> None:
         self._incidents: dict[UUID, dict] = {}
+        self._fallback = fallback
 
     def seed_incident(
         self,
@@ -67,6 +69,8 @@ class StubIncidentService(IncidentServiceBoundary):
         """Retrieve an incident projection by ID."""
         record = self._incidents.get(incident_id)
         if record is None:
+            if self._fallback is not None:
+                return await self._fallback.get_incident(incident_id)
             return None
         return IncidentRef(**record)
 
@@ -86,6 +90,12 @@ class StubIncidentService(IncidentServiceBoundary):
         """
         record = self._incidents.get(incident_id)
         if record is None:
+            if self._fallback is not None:
+                return await self._fallback.assign_technician(
+                    incident_id=incident_id,
+                    technician_id=technician_id,
+                    actor_id=actor_id,
+                )
             raise IncidentNotFoundError(resource_id=str(incident_id))
 
         current_status = record["status"]
@@ -124,6 +134,9 @@ class StubIncidentService(IncidentServiceBoundary):
             if rec.get("assigned_technician_id") == technician_user_id
             and rec.get("status") in active_statuses
         )
+        if self._fallback is not None:
+            fallback_count = await self._fallback.get_active_incident_count(technician_user_id)
+            count += fallback_count
         return count
 
 

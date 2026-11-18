@@ -20,6 +20,7 @@ const INITIAL_FILTERS = {
 
 export default function MyIncidents({
     apiClient,
+    currentUser,
     onOpenIncident,
     onNavigate,
 }) {
@@ -32,8 +33,10 @@ export default function MyIncidents({
     } = useIncidents(apiClient);
 
     const [filters, setFilters] = useState(INITIAL_FILTERS);
-
     const [activeFilters, setActiveFilters] = useState({});
+
+    const isTech = currentUser?.role === "TECHNICIAN";
+    const isAdmin = currentUser?.role === "ADMIN";
 
     const fetchIncidents = async (params = {}) => {
         try {
@@ -101,10 +104,6 @@ export default function MyIncidents({
     const handleOpen = (incidentId) => {
         if (onOpenIncident) {
             onOpenIncident(incidentId);
-        } else {
-            window.location.assign(
-                `/employee/incidents/${incidentId}`
-            );
         }
     };
 
@@ -113,27 +112,33 @@ export default function MyIncidents({
             <div className="employee-page-header">
                 <div>
                     <p className="employee-eyebrow">
-                        EMPLOYEE PORTAL
+                        {isTech ? "TECHNICIAN WORKSPACE" : isAdmin ? "ADMIN WORKSPACE" : "EMPLOYEE PORTAL"}
                     </p>
 
-                    <h1>My Incidents</h1>
+                    <h1>{isTech ? "Assigned Incidents" : isAdmin ? "Incident Management" : "My Incidents"}</h1>
 
                     <p>
-                        View and track all IT incidents you have reported.
+                        {isTech
+                            ? "View, track, and resolve IT incidents assigned directly to you."
+                            : isAdmin
+                              ? "Monitor, triage, and manage all organization incidents across their lifecycle."
+                              : "View and track all IT incidents you have reported."}
                     </p>
                 </div>
 
-                <button
-                    type="button"
-                    className="employee-button employee-button-primary"
-                    onClick={() =>
-                        onNavigate
-                            ? onNavigate("/employee/incidents/new")
-                            : window.location.assign("/employee/incidents/new")
-                    }
-                >
-                    + Report incident
-                </button>
+                {!isTech && (
+                    <button
+                        type="button"
+                        className="employee-button employee-button-primary"
+                        onClick={() =>
+                            onNavigate
+                                ? onNavigate("report-incident")
+                                : null
+                        }
+                    >
+                        + Report incident
+                    </button>
+                )}
             </div>
 
             <section className="employee-section">

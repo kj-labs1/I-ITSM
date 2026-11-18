@@ -97,6 +97,14 @@ function App() {
         setData(await api("/reports/summary", token));
       } else if (page === "users" && isAdmin) {
         setData(await api("/users", token));
+      } else if (page === "technicians" && isAdmin) {
+        setData(await api("/technicians", token));
+      } else if (page === "sla" && isAdmin) {
+        const policies = await api("/sla/policies", token).catch(() => []);
+        const violations = await api("/sla/violations?includeWarnings=true", token).catch(() => []);
+        setData({ policies, violations });
+      } else if (page === "audit" && isAdmin) {
+        setData(await api("/audit?limit=50", token).catch(() => []));
       } else if (page === "services") {
         setData(
           await api(
@@ -213,25 +221,35 @@ function App() {
     return <AuthScreen onLogin={login} error={error} notice={notice} />;
   }
 
+  const isTechnician = user?.role === "TECHNICIAN";
+  const isEmployee = user?.role === "EMPLOYEE";
+
   const pages = [
     ...(isAdmin
       ? [
           { id: "dashboard", label: "Dashboard", symbol: "▦" },
+          { id: "my-incidents", label: "Incident Management", symbol: "☷" },
+          { id: "report-incident", label: "Report Incident", symbol: "✚" },
+          { id: "technicians", label: "Technicians", symbol: "🛠" },
+          { id: "sla", label: "SLA Tracking", symbol: "⏱" },
+          { id: "audit", label: "Audit Logs", symbol: "📜" },
           { id: "users", label: "Users", symbol: "♙" },
+          { id: "services", label: "Services", symbol: "▣" },
+          { id: "categories", label: "Categories", symbol: "≡" },
         ]
-      : user.role === "EMPLOYEE"
+      : isTechnician
         ? [
-            { id: "dashboard", label: "Dashboard", symbol: "▦" },
+            { id: "my-incidents", label: "Assigned Incidents", symbol: "☷" },
+            { id: "services", label: "Services", symbol: "▣" },
+            { id: "categories", label: "Categories", symbol: "≡" },
           ]
-        : []),
-    {
-      id: "my-incidents",
-      label: user.role === "EMPLOYEE" ? "My Incidents" : "Incidents",
-      symbol: "☷",
-    },
-    { id: "report-incident", label: "Report Incident", symbol: "✚" },
-    { id: "services", label: "Services", symbol: "▣" },
-    { id: "categories", label: "Categories", symbol: "≡" },
+        : [
+            { id: "dashboard", label: "Dashboard", symbol: "▦" },
+            { id: "my-incidents", label: "My Incidents", symbol: "☷" },
+            { id: "report-incident", label: "Report Incident", symbol: "✚" },
+            { id: "services", label: "Services", symbol: "▣" },
+            { id: "categories", label: "Categories", symbol: "≡" },
+          ]),
   ];
 
   return (
@@ -292,16 +310,24 @@ function App() {
                   : page === "report-incident"
                     ? "Report Incident"
                     : page === "my-incidents"
-                      ? user.role === "EMPLOYEE"
-                        ? "My Incidents"
-                        : "All Incidents"
+                      ? isTechnician
+                        ? "Assigned Incidents"
+                        : isAdmin
+                          ? "Incident Management"
+                          : "My Incidents"
                       : page === "incident-details"
                         ? "Incident Details"
-                        : page === "users"
-                          ? "User Management"
-                          : page === "services"
-                            ? "Service Catalogue"
-                            : "Incident Categories"}
+                        : page === "technicians"
+                          ? "Technicians Management"
+                          : page === "sla"
+                            ? "SLA Tracking & Policies"
+                            : page === "audit"
+                              ? "Audit Logs"
+                              : page === "users"
+                                ? "User Management"
+                                : page === "services"
+                                  ? "Service Catalogue"
+                                  : "Incident Categories"}
               </h1>
               <p className="subtitle">
                 {page === "dashboard"
@@ -311,14 +337,24 @@ function App() {
                   : page === "report-incident"
                     ? "Submit a new incident ticket to IT support."
                     : page === "my-incidents"
-                      ? "Search, track and view your incident requests."
+                      ? isTechnician
+                        ? "Search, track and resolve incidents assigned to you."
+                        : isAdmin
+                          ? "Search, triage and assign incidents across the organization."
+                          : "Search, track and view your incident requests."
                       : page === "incident-details"
                         ? "View full incident timeline, resolution details and add comments."
-                        : page === "users"
-                          ? "Manage accounts, roles and access."
-                          : page === "services"
-                            ? "Manage the organisation's IT services."
-                            : "Configure incident classifications and required skills."}
+                        : page === "technicians"
+                          ? "Manage technician profiles, capacity, and operational availability."
+                          : page === "sla"
+                            ? "Configure SLA response/resolution targets and monitor breach warnings."
+                            : page === "audit"
+                              ? "Chronological audit trail of all incident lifecycle events."
+                              : page === "users"
+                                ? "Manage accounts, roles and access."
+                                : page === "services"
+                                  ? "Manage the organisation's IT services."
+                                  : "Configure incident classifications and required skills."}
               </p>
             </div>
             <div className="role-label">{user.role}</div>
@@ -360,6 +396,7 @@ function App() {
                       `Incident reported successfully: ${inc.incidentCode || inc.id}`,
                     );
                     setSelectedIncidentId(inc.id);
+                    setPage("incident-details");
                   }}
                   onCancel={() =>
                     setPage(user.role === "EMPLOYEE" ? "dashboard" : "my-incidents")
@@ -370,6 +407,7 @@ function App() {
               {page === "my-incidents" && (
                 <MyIncidents
                   apiClient={apiClient}
+                  currentUser={user}
                   onOpenIncident={(id) => {
                     setSelectedIncidentId(id);
                     setPage("incident-details");
@@ -386,11 +424,32 @@ function App() {
                 <IncidentDetails
                   apiClient={apiClient}
                   incidentId={selectedIncidentId}
+                  currentUser={user}
                   onBack={() => setPage("my-incidents")}
                   onOpenIncident={(id) => {
                     setSelectedIncidentId(id);
                     setPage("incident-details");
                   }}
+                />
+              )}
+
+              {page === "technicians" && isAdmin && (
+                <TechniciansPage
+                  technicians={Array.isArray(data) ? data : []}
+                  perform={perform}
+                />
+              )}
+
+              {page === "sla" && isAdmin && (
+                <SLAPage
+                  slaData={data}
+                  perform={perform}
+                />
+              )}
+
+              {page === "audit" && isAdmin && (
+                <AuditPage
+                  auditLogs={Array.isArray(data) ? data : []}
                 />
               )}
 
@@ -958,6 +1017,231 @@ function CategoriesPage({ categories, perform, isAdmin }) {
         </div>
       </section>
     </>
+  );
+}
+
+function TechniciansPage({ technicians, perform }) {
+  return (
+    <section className="panel">
+      <div className="panel-heading">
+        <div>
+          <h2>Technician Roster & Workload</h2>
+          <p>Operational capacity, availability status and active workload.</p>
+        </div>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Profile ID</th>
+              <th>User ID</th>
+              <th>Experience</th>
+              <th>Max Capacity</th>
+              <th>Active Workload</th>
+              <th>Availability</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {technicians.map((t) => (
+              <tr key={t.id}>
+                <td style={{ fontFamily: "monospace", fontSize: "12px" }}>{t.id}</td>
+                <td style={{ fontFamily: "monospace", fontSize: "12px" }}>{t.userId}</td>
+                <td>{t.experienceYears} yrs</td>
+                <td>{t.maxCapacity}</td>
+                <td>
+                  <span className={`status ${t.activeIncidentCount >= t.maxCapacity ? "inactive" : "active"}`}>
+                    {t.activeIncidentCount} / {t.maxCapacity}
+                  </span>
+                </td>
+                <td>
+                  <span className={`status ${t.availability === "AVAILABLE" ? "active" : "inactive"}`}>
+                    {t.availability}
+                  </span>
+                </td>
+                <td>
+                  <button
+                    className="button button-small button-outline"
+                    onClick={() =>
+                      perform(
+                        `/technicians/${t.id}/availability`,
+                        "PATCH",
+                        { availability: t.availability === "AVAILABLE" ? "BUSY" : "AVAILABLE" },
+                        `Updated availability for technician ${t.id}`
+                      )
+                    }
+                  >
+                    Toggle {t.availability === "AVAILABLE" ? "Busy" : "Available"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {technicians.length === 0 && (
+          <p className="empty">No technicians registered.</p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function SLAPage({ slaData, perform }) {
+  const policies = Array.isArray(slaData?.policies) ? slaData.policies : [];
+  const violations = Array.isArray(slaData?.violations) ? slaData.violations : [];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>SLA Policies (P1–P4)</h2>
+            <p>Configured response and resolution time targets by priority.</p>
+          </div>
+          <button
+            className="button button-primary"
+            onClick={() =>
+              perform("/sla/check", "POST", {}, "SLA check evaluated across all active incidents.")
+            }
+          >
+            ⚡ Run SLA Evaluation Sweep
+          </button>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Priority</th>
+                <th>Policy Name</th>
+                <th>Response Target</th>
+                <th>Resolution Target</th>
+                <th>Warning Threshold</th>
+                <th>Escalation</th>
+              </tr>
+            </thead>
+            <tbody>
+              {policies.map((p) => (
+                <tr key={p.id}>
+                  <td><strong>{p.priority}</strong></td>
+                  <td>{p.name}</td>
+                  <td>{p.responseTimeMinutes} mins</td>
+                  <td>{p.resolutionTimeMinutes} mins ({Math.round(p.resolutionTimeMinutes / 60)} hrs)</td>
+                  <td>{p.warningThresholdPercent}%</td>
+                  <td>{p.escalationEnabled ? "Enabled" : "Disabled"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {policies.length === 0 && (
+            <p className="empty">No SLA policies configured.</p>
+          )}
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Active SLA Violations & Warnings</h2>
+            <p>Incidents approaching or past configured SLA deadlines.</p>
+          </div>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Incident ID</th>
+                <th>Priority</th>
+                <th>SLA Status</th>
+                <th>Breached?</th>
+                <th>Warning Sent?</th>
+                <th>Response Deadline</th>
+                <th>Resolution Deadline</th>
+              </tr>
+            </thead>
+            <tbody>
+              {violations.length === 0 ? (
+                <tr>
+                  <td colSpan={7} style={{ textAlign: "center", color: "#697586" }}>
+                    No active SLA violations or warnings recorded.
+                  </td>
+                </tr>
+              ) : (
+                violations.map((v) => (
+                  <tr key={v.id}>
+                    <td style={{ fontFamily: "monospace", fontSize: "12px" }}>{v.incidentId}</td>
+                    <td><strong>{v.priority}</strong></td>
+                    <td>
+                      <span className={`status ${v.status === "BREACHED" ? "inactive" : "active"}`}>
+                        {v.status}
+                      </span>
+                    </td>
+                    <td>{v.isBreached ? "YES" : "No"}</td>
+                    <td>{v.warningSent ? "YES" : "No"}</td>
+                    <td>{new Date(v.responseDueAt).toLocaleString()}</td>
+                    <td>{new Date(v.resolutionDueAt).toLocaleString()}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function AuditPage({ auditLogs }) {
+  const logs = Array.isArray(auditLogs) ? auditLogs : [];
+
+  return (
+    <section className="panel">
+      <div className="panel-heading">
+        <div>
+          <h2>System Audit Trail</h2>
+          <p>Chronological record of state transitions, assignments and actions.</p>
+        </div>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Incident ID</th>
+              <th>Actor ID</th>
+              <th>Action</th>
+              <th>Event Type</th>
+              <th>Previous Value</th>
+              <th>New Value</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            {logs.length === 0 ? (
+              <tr>
+                <td colSpan={8} style={{ textAlign: "center", color: "#697586" }}>
+                  No audit log entries available.
+                </td>
+              </tr>
+            ) : (
+              logs.map((log) => (
+                <tr key={log.id}>
+                  <td style={{ fontSize: "12px", whiteSpace: "nowrap" }}>
+                    {new Date(log.occurredAt).toLocaleString()}
+                  </td>
+                  <td style={{ fontFamily: "monospace", fontSize: "11px" }}>{log.incidentId || "—"}</td>
+                  <td style={{ fontFamily: "monospace", fontSize: "11px" }}>{log.actorId || "System"}</td>
+                  <td><strong>{log.action}</strong></td>
+                  <td><span className="skill-label">{log.eventType}</span></td>
+                  <td>{log.previousValue || "—"}</td>
+                  <td>{log.newValue || "—"}</td>
+                  <td style={{ fontSize: "12px" }}>{log.details || "—"}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 

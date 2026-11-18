@@ -178,11 +178,7 @@ export default function ReportIncident({
                             type="button"
                             className="employee-button employee-button-primary"
                             onClick={() =>
-                                onSuccess
-                                    ? onSuccess(createdIncident)
-                                    : window.location.assign(
-                                          `/employee/incidents/${createdIncident.id}`
-                                      )
+                                onSuccess ? onSuccess(createdIncident) : null
                             }
                         >
                             View incident

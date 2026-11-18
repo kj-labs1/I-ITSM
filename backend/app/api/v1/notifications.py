@@ -12,12 +12,14 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.deps import get_actor_user_id, get_notification_service
+from app.api.deps import get_actor_identity, get_notification_service
 from app.api.v1.sla_schemas import NotificationResponse, NotificationsReadAllResponse
 from app.application.sla.notification_service import NotificationService
+from app.domain.identity.user import UserIdentity
 from app.domain.sla.notification import Notification
+from app.shared.enums import UserRole
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
@@ -54,11 +56,15 @@ async def list_notifications(
     unread_only: bool = Query(default=False, alias="unreadOnly"),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
+    actor: UserIdentity = Depends(get_actor_identity),
     notification_service: NotificationService = Depends(get_notification_service),
 ) -> list[NotificationResponse]:
     """List notifications ordered newest-first."""
+    target_user_id = user_id
+    if actor.role != UserRole.ADMIN:
+        target_user_id = actor.id
     items = await notification_service.list_notifications(
-        user_id=user_id,
+        user_id=target_user_id,
         incident_id=incident_id,
         unread_only=unread_only,
         skip=skip,
@@ -74,11 +80,11 @@ async def list_notifications(
 )
 async def mark_all_notifications_read(
     user_id: UUID | None = Query(default=None, alias="userId"),
-    actor_id: UUID = Depends(get_actor_user_id),
+    actor: UserIdentity = Depends(get_actor_identity),
     notification_service: NotificationService = Depends(get_notification_service),
 ) -> NotificationsReadAllResponse:
     """Mark all unread notifications for the target (or current) user as read."""
-    target_user = user_id or actor_id
+    target_user = actor.id if actor.role != UserRole.ADMIN else (user_id or actor.id)
     count = await notification_service.mark_all_read(target_user)
     return NotificationsReadAllResponse(user_id=target_user, marked_count=count)
 
@@ -90,10 +96,16 @@ async def mark_all_notifications_read(
 )
 async def get_notification(
     notification_id: UUID,
+    actor: UserIdentity = Depends(get_actor_identity),
     notification_service: NotificationService = Depends(get_notification_service),
 ) -> NotificationResponse:
     """Retrieve a single notification by its UUID."""
     item = await notification_service.get_notification(notification_id)
+    if actor.role != UserRole.ADMIN and item.user_id != actor.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: Cannot view notifications belonging to other users.",
+        )
     return _to_response(item)
 
 
@@ -104,8 +116,15 @@ async def get_notification(
 )
 async def mark_notification_read(
     notification_id: UUID,
+    actor: UserIdentity = Depends(get_actor_identity),
     notification_service: NotificationService = Depends(get_notification_service),
 ) -> NotificationResponse:
     """Mark a specific notification as read and record its ``readAt`` timestamp."""
-    item = await notification_service.mark_as_read(notification_id)
-    return _to_response(item)
+    item = await notification_service.get_notification(notification_id)
+    if actor.role != UserRole.ADMIN and item.user_id != actor.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: Cannot modify notifications belonging to other users.",
+        )
+    updated = await notification_service.mark_as_read(notification_id)
+    return _to_response(updated)
