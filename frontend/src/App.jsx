@@ -1,4 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  EmployeeDashboard,
+  MyIncidents,
+  ReportIncident,
+  IncidentDetails,
+} from "./features/employee";
 
 const API = "http://127.0.0.1:8000/api/v1";
 
@@ -33,17 +39,61 @@ function App() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [data, setData] = useState([]);
+  const [selectedIncidentId, setSelectedIncidentId] = useState(null);
+  const [servicesList, setServicesList] = useState([]);
+  const [categoriesList, setCategoriesList] = useState([]);
 
   const isAdmin = user?.role === "ADMIN";
 
+  const apiClient = useMemo(() => ({
+    get: async (path, config = {}) => {
+      let query = "";
+      if (config?.params) {
+        const searchParams = new URLSearchParams();
+        Object.entries(config.params).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== "") {
+            searchParams.append(key, value);
+          }
+        });
+        const qs = searchParams.toString();
+        if (qs) query = `?${qs}`;
+      }
+      const res = await api(`${path}${query}`, token, { method: "GET" });
+      return { data: res };
+    },
+    post: async (path, body) => {
+      const res = await api(path, token, {
+        method: "POST",
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      return { data: res };
+    },
+    patch: async (path, body) => {
+      const res = await api(path, token, {
+        method: "PATCH",
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      return { data: res };
+    },
+  }), [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    api("/services", token).then((res) => setServicesList(Array.isArray(res) ? res : [])).catch(() => {});
+    api("/categories", token).then((res) => setCategoriesList(Array.isArray(res) ? res : [])).catch(() => {});
+  }, [token]);
+
   async function loadPage() {
     if (!token || !user) return;
+    if (page === "report-incident" || page === "incident-details" || page === "my-incidents" || (page === "dashboard" && !isAdmin)) {
+      return;
+    }
 
     setLoading(true);
     setError("");
 
     try {
-      if (page === "dashboard") {
+      if (page === "dashboard" && isAdmin) {
         setData(await api("/reports/summary", token));
       } else if (page === "users" && isAdmin) {
         setData(await api("/users", token));
@@ -75,7 +125,13 @@ function App() {
     api("/auth/me", token)
       .then((profile) => {
         setUser(profile);
-        setPage(profile.role === "ADMIN" ? "dashboard" : "services");
+        if (profile.role === "ADMIN") {
+          setPage("dashboard");
+        } else if (profile.role === "TECHNICIAN") {
+          setPage("my-incidents");
+        } else {
+          setPage("dashboard");
+        }
       })
       .catch(() => {
         localStorage.removeItem("iitsm_token");
@@ -160,12 +216,22 @@ function App() {
   const pages = [
     ...(isAdmin
       ? [
-          { id: "dashboard", label: "Dashboard" },
-          { id: "users", label: "Users" },
+          { id: "dashboard", label: "Dashboard", symbol: "▦" },
+          { id: "users", label: "Users", symbol: "♙" },
         ]
-      : []),
-    { id: "services", label: "Services" },
-    { id: "categories", label: "Categories" },
+      : user.role === "EMPLOYEE"
+        ? [
+            { id: "dashboard", label: "Dashboard", symbol: "▦" },
+          ]
+        : []),
+    {
+      id: "my-incidents",
+      label: user.role === "EMPLOYEE" ? "My Incidents" : "Incidents",
+      symbol: "☷",
+    },
+    { id: "report-incident", label: "Report Incident", symbol: "✚" },
+    { id: "services", label: "Services", symbol: "▣" },
+    { id: "categories", label: "Categories", symbol: "≡" },
   ];
 
   return (
@@ -203,15 +269,7 @@ function App() {
                 setNotice("");
               }}
             >
-              <span className="nav-symbol">
-                {item.id === "dashboard"
-                  ? "▦"
-                  : item.id === "users"
-                    ? "♙"
-                    : item.id === "services"
-                      ? "▣"
-                      : "≡"}
-              </span>
+              <span className="nav-symbol">{item.symbol}</span>
               {item.label}
             </button>
           ))}
@@ -225,24 +283,42 @@ function App() {
         <main className="main-content">
           <div className="page-heading">
             <div>
-              <p className="eyebrow">I-ITSM / {page.toUpperCase()}</p>
+              <p className="eyebrow">I-ITSM / {page.toUpperCase().replace("-", " ")}</p>
               <h1>
                 {page === "dashboard"
-                  ? "Admin Dashboard"
-                  : page === "users"
-                    ? "User Management"
-                    : page === "services"
-                      ? "Service Catalogue"
-                      : "Incident Categories"}
+                  ? isAdmin
+                    ? "Admin Dashboard"
+                    : "Employee Dashboard"
+                  : page === "report-incident"
+                    ? "Report Incident"
+                    : page === "my-incidents"
+                      ? user.role === "EMPLOYEE"
+                        ? "My Incidents"
+                        : "All Incidents"
+                      : page === "incident-details"
+                        ? "Incident Details"
+                        : page === "users"
+                          ? "User Management"
+                          : page === "services"
+                            ? "Service Catalogue"
+                            : "Incident Categories"}
               </h1>
               <p className="subtitle">
                 {page === "dashboard"
-                  ? "Overview of your IT service management platform."
-                  : page === "users"
-                    ? "Manage accounts, roles and access."
-                    : page === "services"
-                      ? "Manage the organisation's IT services."
-                      : "Configure incident classifications and required skills."}
+                  ? isAdmin
+                    ? "Overview of your IT service management platform."
+                    : "Overview of your reported incidents and activities."
+                  : page === "report-incident"
+                    ? "Submit a new incident ticket to IT support."
+                    : page === "my-incidents"
+                      ? "Search, track and view your incident requests."
+                      : page === "incident-details"
+                        ? "View full incident timeline, resolution details and add comments."
+                        : page === "users"
+                          ? "Manage accounts, roles and access."
+                          : page === "services"
+                            ? "Manage the organisation's IT services."
+                            : "Configure incident classifications and required skills."}
               </p>
             </div>
             <div className="role-label">{user.role}</div>
@@ -256,6 +332,67 @@ function App() {
           ) : (
             <>
               {page === "dashboard" && isAdmin && <Dashboard summary={data} />}
+
+              {page === "dashboard" && user.role === "EMPLOYEE" && (
+                <EmployeeDashboard
+                  apiClient={apiClient}
+                  onNavigate={(target) => {
+                    if (target && target.includes("report")) {
+                      setPage("report-incident");
+                    } else {
+                      setPage("my-incidents");
+                    }
+                  }}
+                  onOpenIncident={(id) => {
+                    setSelectedIncidentId(id);
+                    setPage("incident-details");
+                  }}
+                />
+              )}
+
+              {page === "report-incident" && (
+                <ReportIncident
+                  apiClient={apiClient}
+                  services={servicesList}
+                  categories={categoriesList}
+                  onSuccess={(inc) => {
+                    setNotice(
+                      `Incident reported successfully: ${inc.incidentCode || inc.id}`,
+                    );
+                    setSelectedIncidentId(inc.id);
+                  }}
+                  onCancel={() =>
+                    setPage(user.role === "EMPLOYEE" ? "dashboard" : "my-incidents")
+                  }
+                />
+              )}
+
+              {page === "my-incidents" && (
+                <MyIncidents
+                  apiClient={apiClient}
+                  onOpenIncident={(id) => {
+                    setSelectedIncidentId(id);
+                    setPage("incident-details");
+                  }}
+                  onNavigate={(target) => {
+                    if (target && target.includes("report")) {
+                      setPage("report-incident");
+                    }
+                  }}
+                />
+              )}
+
+              {page === "incident-details" && (
+                <IncidentDetails
+                  apiClient={apiClient}
+                  incidentId={selectedIncidentId}
+                  onBack={() => setPage("my-incidents")}
+                  onOpenIncident={(id) => {
+                    setSelectedIncidentId(id);
+                    setPage("incident-details");
+                  }}
+                />
+              )}
 
               {page === "users" && isAdmin && (
                 <UsersPage

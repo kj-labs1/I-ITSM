@@ -14,11 +14,15 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.interfaces.incident_repository import (
     IncidentRepository,
+)
+from app.core.exceptions import (
+    DuplicateAssignmentError,
+    InvalidAssignmentError,
 )
 from app.domain.incident.incident import Incident
 from app.domain.incident.incident_comment import IncidentComment
@@ -314,7 +318,65 @@ class SQLAlchemyIncidentRepository(IncidentRepository):
         return self._to_domain(model) if model else None
 
     async def update(self, incident: Incident) -> Incident:
-        """Update an existing incident."""
+        """Update an existing incident with atomic concurrency protection."""
+
+        if (
+            incident.status == IncidentStatus.ASSIGNED
+            and incident.assigned_technician_id is not None
+        ):
+            # Atomic Compare-And-Swap (CAS) guard against concurrent duplicate assignments
+            cas_stmt = (
+                update(IncidentModel)
+                .where(IncidentModel.id == incident.id)
+                .where(
+                    or_(
+                        IncidentModel.assigned_technician_id.is_(None),
+                        IncidentModel.assigned_technician_id == incident.assigned_technician_id,
+                    )
+                )
+                .where(
+                    IncidentModel.status.in_(
+                        [
+                            IncidentStatus.NEW,
+                            IncidentStatus.CLASSIFIED,
+                            IncidentStatus.ASSIGNED,
+                        ]
+                    )
+                )
+                .values(
+                    incident_code=incident.incident_code,
+                    reporter_id=incident.reporter_id,
+                    service_id=incident.service_id,
+                    category=incident.category,
+                    required_skill=incident.required_skill,
+                    description=incident.description,
+                    impact=incident.impact,
+                    urgency=incident.urgency,
+                    business_criticality=incident.business_criticality,
+                    priority=incident.priority,
+                    status=IncidentStatus.ASSIGNED,
+                    assigned_technician_id=incident.assigned_technician_id,
+                    resolution_details=incident.resolution_details,
+                    updated_at=datetime.now(UTC),
+                )
+            )
+            result = await self._session.execute(cas_stmt)
+            if result.rowcount == 0:
+                self._session.expire_all()
+                check_stmt = select(IncidentModel).where(IncidentModel.id == incident.id)
+                current = (await self._session.execute(check_stmt)).scalar_one_or_none()
+                if current and current.assigned_technician_id is not None:
+                    raise DuplicateAssignmentError(
+                        f"Incident {current.incident_code} is already assigned."
+                    )
+                raise InvalidAssignmentError(
+                    f"Incident {incident.incident_code} cannot be assigned."
+                )
+
+            self._session.expire_all()
+            fresh_stmt = select(IncidentModel).where(IncidentModel.id == incident.id)
+            fresh_model = (await self._session.execute(fresh_stmt)).scalar_one()
+            return self._to_domain(fresh_model)
 
         stmt = select(IncidentModel).where(
             IncidentModel.id == incident.id

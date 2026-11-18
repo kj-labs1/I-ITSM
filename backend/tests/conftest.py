@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncGenerator
+from uuid import UUID
 
 import pytest
 import pytest_asyncio
@@ -29,6 +30,7 @@ import app.infrastructure.database.incident_models
 import app.infrastructure.database.models  # noqa: F401
 import app.infrastructure.database.sla_models  # noqa: F401
 from app.api.deps import (
+    get_actor_user_id,
     get_assignment_service,
     get_audit_log_repository,
     get_audit_service,
@@ -269,6 +271,9 @@ async def async_client(
     app.dependency_overrides[get_sla_service] = lambda: s_svc
     app.dependency_overrides[get_audit_service] = lambda: aud_svc
     app.dependency_overrides[get_notification_service] = lambda: n_svc
+
+    default_actor_id = UUID("00000000-0000-0000-0000-000000000001")
+    app.dependency_overrides[get_actor_user_id] = lambda: default_actor_id
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
