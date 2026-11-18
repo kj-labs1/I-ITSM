@@ -17,13 +17,24 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Enum as SAEnum
-from sqlalchemy import ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy import (
+    Enum as SAEnum,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import Uuid
 
 from app.infrastructure.database.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
-from app.shared.enums import AvailabilityStatus
+from app.shared.enums import AvailabilityStatus, IncidentCategory, UserRole
 
 if TYPE_CHECKING:
     pass
@@ -120,3 +131,72 @@ class TechnicianSkillModel(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     def __repr__(self) -> str:
         return f"<TechnicianSkillModel(skill={self.skill_name}, proficiency={self.proficiency_level})>"
+
+
+class UserModel(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    """Database model for system users (Member 1)."""
+
+    __tablename__ = "users"
+
+    username: Mapped[str] = mapped_column(
+        String(50), unique=True, nullable=False, index=True
+    )
+    email: Mapped[str] = mapped_column(
+        String(255), unique=True, nullable=False, index=True
+    )
+    full_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[UserRole] = mapped_column(
+        SAEnum(UserRole, name="user_role_enum", native_enum=False),
+        default=UserRole.EMPLOYEE,
+        nullable=False,
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    def __repr__(self) -> str:
+        return f"<UserModel(id={self.id}, username={self.username}, role={self.role})>"
+
+
+class ServiceModel(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    """IT service catalogue entry (Member 1)."""
+
+    __tablename__ = "services"
+
+    __table_args__ = (
+        CheckConstraint(
+            "business_criticality >= 1 AND business_criticality <= 5",
+            name="ck_services_business_criticality",
+        ),
+    )
+
+    name: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    business_criticality: Mapped[int] = mapped_column(
+        Integer, default=3, nullable=False
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    def __repr__(self) -> str:
+        return f"<ServiceModel(id={self.id}, name={self.name}, criticality={self.business_criticality})>"
+
+
+class IncidentCategoryModel(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    """Configurable incident category and required technician skill (Member 1)."""
+
+    __tablename__ = "incident_categories"
+
+    category: Mapped[IncidentCategory] = mapped_column(
+        SAEnum(
+            IncidentCategory,
+            name="incident_category_enum",
+            native_enum=False,
+        ),
+        unique=True,
+        nullable=False,
+    )
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    required_skill: Mapped[str] = mapped_column(String(100), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    def __repr__(self) -> str:
+        return f"<IncidentCategoryModel(category={self.category}, required_skill={self.required_skill})>"
