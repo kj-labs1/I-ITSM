@@ -34,7 +34,10 @@ from app.domain.incident.duplicate_policy import (
     DEFAULT_DUPLICATE_POLICY,
 )
 from app.domain.incident.events import (
+    IncidentArchivedEvent,
+    IncidentCommentAddedEvent,
     IncidentCreatedEvent,
+    IncidentMergedEvent,
     IncidentStatusChangedEvent,
     PriorityChangedEvent,
 )
@@ -170,20 +173,21 @@ class IncidentApplicationService(IncidentServiceBoundary):
     # ============================================================
 
     async def list_incidents(
-    self,
-    skip: int = 0,
-    limit: int = 50,
-    reporter_id: UUID | None = None,
-    incident_id: UUID | None = None,
-    incident_code: str | None = None,
-    date_from: datetime | None = None,
-    date_to: datetime | None = None,
-    status=None,
-    priority=None,
-    category=None,
-    service_id: UUID | None = None,
-    assigned_technician_id: UUID | None = None,
-):
+        self,
+        skip: int = 0,
+        limit: int = 50,
+        reporter_id: UUID | None = None,
+        incident_id: UUID | None = None,
+        incident_code: str | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+        status=None,
+        priority=None,
+        category=None,
+        service_id: UUID | None = None,
+        assigned_technician_id: UUID | None = None,
+        is_archived: bool | None = False,
+    ) -> list[Incident]:
         """List incidents after validating all search criteria."""
 
     # Validate pagination even if this method is called outside FastAPI.
@@ -238,19 +242,20 @@ class IncidentApplicationService(IncidentServiceBoundary):
         )
 
         return await self.repository.list_all(
-        skip=skip,
-        limit=limit,
-        reporter_id=reporter_id,
-        incident_id=incident_id,
-        incident_code=incident_code,
-        date_from=date_from,
-        date_to=date_to,
-        status=status,
-        priority=priority,
-        category=category,
-        service_id=service_id,
-        assigned_technician_id=assigned_technician_id,
-    )
+            skip=skip,
+            limit=limit,
+            reporter_id=reporter_id,
+            incident_id=incident_id,
+            incident_code=incident_code,
+            date_from=date_from,
+            date_to=date_to,
+            status=status,
+            priority=priority,
+            category=category,
+            service_id=service_id,
+            assigned_technician_id=assigned_technician_id,
+            is_archived=is_archived,
+        )
 
     async def find_potential_duplicates(
     self,
@@ -409,6 +414,8 @@ class IncidentApplicationService(IncidentServiceBoundary):
                     incident_code=updated.incident_code,
                     previous_priority=previous_priority,
                     new_priority=updated.priority,
+                    reporter_id=updated.reporter_id,
+                    assigned_technician_id=updated.assigned_technician_id,
                 )
             )
 
@@ -454,6 +461,8 @@ class IncidentApplicationService(IncidentServiceBoundary):
                 previous_status=previous_status,
                 new_status=updated.status,
                 actor_id=actor_id,
+                reporter_id=updated.reporter_id,
+                assigned_technician_id=updated.assigned_technician_id,
             )
         )
 
@@ -479,7 +488,7 @@ class IncidentApplicationService(IncidentServiceBoundary):
         """Add a comment to an existing incident."""
 
         # Ensure that the parent incident exists.
-        await self.get_incident_entity(incident_id)
+        parent = await self.get_incident_entity(incident_id)
 
         try:
             comment = IncidentComment(
@@ -490,7 +499,20 @@ class IncidentApplicationService(IncidentServiceBoundary):
         except ValueError as exc:
             raise ValidationError(str(exc)) from exc
 
-        return await self.repository.save_comment(comment)
+        saved_comment = await self.repository.save_comment(comment)
+
+        await self.event_publisher.publish(
+            IncidentCommentAddedEvent(
+                incident_id=parent.id,
+                incident_code=parent.incident_code,
+                author_id=author_id,
+                reporter_id=parent.reporter_id,
+                assigned_technician_id=parent.assigned_technician_id,
+                content_snippet=content[:100],
+            )
+        )
+
+        return saved_comment
 
     # ============================================================
     # MEMBER 3 INTEGRATION — INCIDENT SERVICE BOUNDARY
@@ -571,6 +593,8 @@ class IncidentApplicationService(IncidentServiceBoundary):
                 previous_status=previous_status,
                 new_status=IncidentStatus.ASSIGNED,
                 actor_id=actor_id,
+                reporter_id=incident.reporter_id,
+                assigned_technician_id=technician_id,
             )
         )
 
@@ -595,3 +619,151 @@ class IncidentApplicationService(IncidentServiceBoundary):
         return await self.repository.count_active_by_technician(
             technician_user_id
         )
+
+    # ============================================================
+    # ARCHIVING & MERGING OPERATIONS (Tasks 3 & 4)
+    # ============================================================
+
+    async def archive_incident(
+        self,
+        incident_id: UUID,
+        actor_id: UUID,
+    ) -> Incident:
+        """Soft-archive a CLOSED incident (admin only)."""
+        incident = await self.repository.get_by_id(incident_id)
+        if incident is None:
+            raise IncidentNotFoundError(resource_id=str(incident_id))
+
+        incident.archive(actor_id=actor_id)
+        updated = await self.repository.update(incident)
+
+        await self.event_publisher.publish(
+            IncidentArchivedEvent(
+                incident_id=updated.id,
+                incident_code=updated.incident_code,
+                actor_id=actor_id,
+            )
+        )
+
+        logger.info(
+            "Incident %s (%s) soft-archived by actor %s",
+            updated.incident_code,
+            updated.id,
+            actor_id,
+        )
+        return updated
+
+    async def list_archived_incidents(
+        self,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> list[Incident]:
+        """Retrieve soft-archived incidents (admin only)."""
+        if skip < 0 or not 1 <= limit <= 100:
+            raise ValidationError(
+                "Invalid pagination parameters.",
+                error_code="INVALID_PAGINATION",
+            )
+        return await self.repository.list_all(
+            skip=skip,
+            limit=limit,
+            is_archived=True,
+        )
+
+    async def merge_incidents(
+        self,
+        primary_incident_id: UUID,
+        duplicate_incident_ids: list[UUID],
+        actor_id: UUID,
+    ) -> dict:
+        """Merge one or more duplicate incidents into a primary incident (admin only)."""
+        if not duplicate_incident_ids:
+            raise ValidationError(
+                "At least one duplicate incident ID must be specified for merge.",
+                error_code="EMPTY_MERGE_LIST",
+            )
+
+        if primary_incident_id in duplicate_incident_ids:
+            raise ValidationError(
+                "Primary incident cannot be in the list of duplicate incidents to merge.",
+                error_code="SELF_MERGE_DISALLOWED",
+            )
+
+        primary = await self.repository.get_by_id(primary_incident_id)
+        if primary is None:
+            raise IncidentNotFoundError(resource_id=str(primary_incident_id))
+
+        if primary.is_archived:
+            raise ValidationError(
+                f"Primary incident {primary.incident_code} is archived and cannot receive merged incidents.",
+                error_code="ARCHIVED_MERGE_DISALLOWED",
+            )
+
+        if primary.merged_into_incident_id is not None:
+            raise ValidationError(
+                f"Primary incident {primary.incident_code} has already been merged into another incident.",
+                error_code="PRIMARY_ALREADY_MERGED",
+            )
+
+        merged_duplicates = []
+        for dup_id in duplicate_incident_ids:
+            dup = await self.repository.get_by_id(dup_id)
+            if dup is None:
+                raise IncidentNotFoundError(resource_id=str(dup_id))
+
+            if dup.is_archived:
+                raise ValidationError(
+                    f"Duplicate incident {dup.incident_code} is archived and cannot be merged.",
+                    error_code="ARCHIVED_MERGE_DISALLOWED",
+                )
+
+            if dup.merged_into_incident_id is not None:
+                raise ValidationError(
+                    f"Incident {dup.incident_code} has already been merged into {dup.merged_into_incident_id}.",
+                    error_code="ALREADY_MERGED",
+                )
+
+            dup.merge_into(primary_id=primary.id, actor_id=actor_id)
+            dup.status = IncidentStatus.CLOSED
+            dup.resolution_details = (
+                f"Merged into primary incident {primary.incident_code} ({primary.id})"
+            )
+            saved_dup = await self.repository.update(dup)
+            merged_duplicates.append(saved_dup)
+
+            # Preserve history: add comment to primary referencing duplicate
+            await self.add_comment(
+                incident_id=primary.id,
+                author_id=actor_id,
+                content=(
+                    f"[Duplicate Merged] Incident {dup.incident_code} (ID: {dup.id}) "
+                    f"was merged into this incident. Original description: '{dup.description}'"
+                ),
+            )
+
+            # Publish event for audit logs
+            await self.event_publisher.publish(
+                IncidentMergedEvent(
+                    incident_id=dup.id,
+                    incident_code=dup.incident_code,
+                    primary_incident_id=primary.id,
+                    primary_incident_code=primary.incident_code,
+                    actor_id=actor_id,
+                    duplicate_incident_ids=[dup.id],
+                )
+            )
+
+        logger.info(
+            "Successfully merged %d incidents into primary incident %s (%s)",
+            len(merged_duplicates),
+            primary.incident_code,
+            primary.id,
+        )
+
+        return {
+            "primary_incident_id": primary.id,
+            "primary_incident_code": primary.incident_code,
+            "merged_incident_ids": [d.id for d in merged_duplicates],
+            "merged_count": len(merged_duplicates),
+            "merged_at": datetime.now(UTC),
+        }

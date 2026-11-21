@@ -1,3 +1,5 @@
+import { extractErrorMessage } from "../../../utils/errorHandler";
+
 /**
  * Common helper functions for Employee Incident Management.
  */
@@ -62,12 +64,7 @@ export function formatDateOnly(dateValue) {
 }
 
 export function getErrorMessage(error) {
-    return (
-        error?.response?.data?.message ||
-        error?.response?.data?.detail ||
-        error?.message ||
-        "Something went wrong. Please try again."
-    );
+    return extractErrorMessage(error);
 }
 
 export function getIncidentStats(incidents = []) {

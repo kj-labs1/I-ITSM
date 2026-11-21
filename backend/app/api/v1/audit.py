@@ -8,6 +8,7 @@ Routes owned (per PROJECT_CONTRACT.md):
 
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -80,6 +81,9 @@ async def list_audit_logs(
     incident_id: UUID | None = Query(default=None, alias="incidentId"),
     actor_id: UUID | None = Query(default=None, alias="actorId"),
     action: str | None = Query(default=None),
+    event_type: str | None = Query(default=None, alias="eventType"),
+    date_from: datetime | None = Query(default=None, alias="dateFrom"),
+    date_to: datetime | None = Query(default=None, alias="dateTo"),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=200),
     actor: UserIdentity = Depends(get_actor_identity),
@@ -95,6 +99,9 @@ async def list_audit_logs(
         incident_id=incident_id,
         actor_id=actor_id,
         action=action,
+        event_type=event_type,
+        date_from=date_from,
+        date_to=date_to,
         skip=skip,
         limit=limit,
     )

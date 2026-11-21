@@ -44,6 +44,9 @@ class Technician:
         id: UUID | None = None,
         created_at: datetime | None = None,
         updated_at: datetime | None = None,
+        username: str | None = None,
+        full_name: str | None = None,
+        email: str | None = None,
     ) -> None:
         """Initialize a technician entity and enforce domain invariants."""
         if experience_years < 0:
@@ -61,6 +64,24 @@ class Technician:
         now = datetime.now(UTC)
         self.created_at = created_at if created_at is not None else now
         self.updated_at = updated_at if updated_at is not None else now
+        self._username = username
+        self._full_name = full_name
+        self._email = email
+
+    @property
+    def username(self) -> str | None:
+        """Username from M1 identity account."""
+        return self._username
+
+    @property
+    def full_name(self) -> str | None:
+        """Full name from M1 identity account."""
+        return self._full_name
+
+    @property
+    def email(self) -> str | None:
+        """Email address from M1 identity account."""
+        return self._email
 
     # --- Operational Parameters Management (Encapsulation - R1) ---
 

@@ -87,5 +87,28 @@ export function createIncidentApi(apiClient) {
 
             return Array.isArray(data) ? data : [];
         },
+
+        async archiveIncident(incidentId) {
+            const response = await apiClient.patch(
+                `/incidents/${incidentId}/archive`
+            );
+            return unwrap(response);
+        },
+
+        async mergeIncidents(incidentId, duplicateIncidentIds) {
+            const response = await apiClient.post(
+                `/incidents/${incidentId}/merge`,
+                { duplicateIncidentIds }
+            );
+            return unwrap(response);
+        },
+
+        async getArchivedIncidents(params = {}) {
+            const response = await apiClient.get("/incidents/archived", {
+                params,
+            });
+            const data = unwrap(response);
+            return Array.isArray(data) ? data : [];
+        },
     };
 }

@@ -25,6 +25,7 @@ from app.core.exceptions import (
     SLAPolicyNotFoundError,
     SLATrackingNotFoundError,
 )
+from app.domain.sla.enums import SLAStatus
 from app.domain.sla.events import SLABreachedEvent, SLAMetEvent, SLAWarningEvent
 from app.domain.sla.policy import DEFAULT_SLA_POLICY_SPECS, SLAPolicy
 from app.domain.sla.tracking import IncidentSLATracking, SLAEvaluationResult
@@ -237,6 +238,69 @@ class SLAService:
             skip=skip,
             limit=limit,
         )
+
+    async def get_sla_summary(self) -> dict:
+        """Compute aggregate SLA metrics and priority breakdowns."""
+        all_records = await self._tracking_repo.list_all()
+        total_tracked = len(all_records)
+        met_count = sum(
+            1
+            for r in all_records
+            if r.status == SLAStatus.MET or (r.resolved_at is not None and not r.is_breached)
+        )
+        breached_count = sum(
+            1
+            for r in all_records
+            if r.is_breached or r.status == SLAStatus.BREACHED
+        )
+        warning_count = sum(
+            1
+            for r in all_records
+            if (r.status == SLAStatus.WARNING or r.warning_sent)
+            and not r.is_breached
+            and r.resolved_at is None
+        )
+        active_count = sum(1 for r in all_records if r.resolved_at is None)
+        compliance_rate = (
+            round((total_tracked - breached_count) / total_tracked * 100.0, 1)
+            if total_tracked > 0
+            else 100.0
+        )
+
+        by_priority = []
+        for p in (Priority.P1, Priority.P2, Priority.P3, Priority.P4):
+            p_records = [r for r in all_records if r.priority == p]
+            p_total = len(p_records)
+            p_breached = sum(1 for r in p_records if r.is_breached or r.status == SLAStatus.BREACHED)
+            p_met = sum(
+                1
+                for r in p_records
+                if r.status == SLAStatus.MET or (r.resolved_at is not None and not r.is_breached)
+            )
+            p_compliance = (
+                round((p_total - p_breached) / p_total * 100.0, 1)
+                if p_total > 0
+                else 100.0
+            )
+            by_priority.append(
+                {
+                    "priority": p,
+                    "total": p_total,
+                    "met": p_met,
+                    "breached": p_breached,
+                    "compliance_rate": p_compliance,
+                }
+            )
+
+        return {
+            "total_tracked": total_tracked,
+            "met_count": met_count,
+            "breached_count": breached_count,
+            "warning_count": warning_count,
+            "active_count": active_count,
+            "compliance_rate": compliance_rate,
+            "by_priority": by_priority,
+        }
 
     # ── Scheduled Evaluation Sweep ────────────────────────────────────────────
 

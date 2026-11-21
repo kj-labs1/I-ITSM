@@ -101,6 +101,28 @@ class SLACheckSummaryResponse(BaseDTO):
     breaches_triggered: int
 
 
+class SLAPrioritySummary(BaseDTO):
+    """SLA breakdown metrics for a specific incident priority."""
+
+    priority: Priority
+    total: int
+    met: int
+    breached: int
+    compliance_rate: float
+
+
+class SLASummaryResponse(BaseDTO):
+    """Aggregate SLA metrics for executive and operational dashboards."""
+
+    total_tracked: int
+    met_count: int
+    breached_count: int
+    warning_count: int
+    active_count: int
+    compliance_rate: float
+    by_priority: list[SLAPrioritySummary]
+
+
 # ── Audit Log Schemas ─────────────────────────────────────────────────────────
 
 
@@ -144,3 +166,10 @@ class NotificationsReadAllResponse(BaseDTO):
 
     user_id: UUID
     marked_count: int
+
+
+class NotificationUnreadCountResponse(BaseDTO):
+    """Response returning count of unread notifications for a user."""
+
+    user_id: UUID
+    unread_count: int

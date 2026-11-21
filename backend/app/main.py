@@ -88,6 +88,28 @@ async def _scoped_notification_service() -> AsyncGenerator:
             raise
 
 
+@asynccontextmanager
+async def _scoped_incident_service() -> AsyncGenerator:
+    from app.application.incident.service import IncidentApplicationService
+    from app.infrastructure.database.session import get_session_factory
+    from app.infrastructure.events.event_bus import get_event_bus
+    from app.infrastructure.repositories.incident_repository import (
+        SQLAlchemyIncidentRepository,
+    )
+
+    factory = get_session_factory()
+    async with factory() as session:
+        try:
+            yield IncidentApplicationService(
+                repository=SQLAlchemyIncidentRepository(session),
+                event_publisher=get_event_bus(),
+            )
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+
+
 # ── Lifespan ─────────────────────────────────────────────────────────────────
 
 
@@ -173,7 +195,10 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
 
     event_bus = get_event_bus()
     audit_listener = AuditEventListener(_scoped_audit_service)
-    notification_listener = NotificationEventListener(_scoped_notification_service)
+    notification_listener = NotificationEventListener(
+        _scoped_notification_service,
+        incident_service_factory=_scoped_incident_service,
+    )
     sla_lifecycle_listener = SLALifecycleEventListener(_scoped_sla_service)
 
     event_bus.subscribe(DomainEvent, audit_listener)
@@ -230,6 +255,7 @@ def create_app() -> FastAPI:
                 "status": exc.status_code,
                 "errorCode": exc.error_code,
                 "message": exc.message,
+                "detail": exc.message,
                 "path": request.url.path,
             },
         )

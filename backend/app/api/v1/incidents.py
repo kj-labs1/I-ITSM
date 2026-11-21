@@ -30,6 +30,8 @@ from app.api.v1.schemas import (
     IncidentCommentResponse,
     IncidentCreateRequest,
     IncidentDetailsResponse,
+    IncidentMergeRequest,
+    IncidentMergeResponse,
     IncidentResponse,
     IncidentStatusUpdateRequest,
     IncidentUpdateRequest,
@@ -82,6 +84,12 @@ def _to_incident_response(
         status=incident.status,
         assigned_technician_id=incident.assigned_technician_id,
         resolution_details=incident.resolution_details,
+        is_archived=incident.is_archived,
+        archived_at=incident.archived_at,
+        archived_by=incident.archived_by,
+        merged_into_incident_id=incident.merged_into_incident_id,
+        merged_at=incident.merged_at,
+        merged_by=incident.merged_by,
         created_at=incident.created_at,
         updated_at=incident.updated_at,
     )
@@ -158,8 +166,29 @@ async def create_incident(
 
 
 # ============================================================
-# 2. LIST INCIDENTS
+# 2. LIST & RETRIEVE INCIDENTS
 # ============================================================
+
+
+@router.get(
+    "/archived",
+    response_model=list[IncidentResponse],
+    summary="List soft-archived incidents (Admin only)",
+)
+async def list_archived_incidents(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
+    svc: IncidentApplicationService = Depends(get_incident_service),
+    actor: UserIdentity = Depends(get_actor_identity),
+) -> list[IncidentResponse]:
+    """Retrieve soft-archived incidents. Only accessible to administrators."""
+    if actor.role != UserRole.ADMIN:
+        raise AuthorizationError("Only administrators can view archived incidents.")
+
+    incidents = await svc.list_archived_incidents(skip=skip, limit=limit)
+    return [_to_incident_response(inc) for inc in incidents]
+
+
 @router.get(
     "/{incident_id}",
     response_model=IncidentDetailsResponse,
@@ -182,11 +211,15 @@ async def get_incident_details(
         ],
     )
 
+
 @router.get("", response_model=list[IncidentResponse])
 async def list_incidents(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
-
+    include_archived: bool = Query(
+        default=False,
+        alias="includeArchived",
+    ),
     incident_id: UUID | None = Query(
         default=None,
         alias="incidentId",
@@ -231,12 +264,21 @@ async def list_incidents(
         filter_reporter_id = None
         filter_assigned_tech_id = assigned_technician_id
 
+    search_incident_id = incident_id
+    search_incident_code = incident_code
+    if incident_code and not search_incident_id:
+        try:
+            search_incident_id = UUID(incident_code.strip())
+            search_incident_code = None
+        except (ValueError, AttributeError):
+            pass
+
     incidents = await svc.list_incidents(
         skip=skip,
         limit=limit,
         reporter_id=filter_reporter_id,
-        incident_id=incident_id,
-        incident_code=incident_code,
+        incident_id=search_incident_id,
+        incident_code=search_incident_code,
         date_from=date_from,
         date_to=date_to,
         status=status,
@@ -244,10 +286,11 @@ async def list_incidents(
         category=category,
         service_id=service_id,
         assigned_technician_id=filter_assigned_tech_id,
+        is_archived=None if include_archived else False,
     )
 
     return [
-        IncidentResponse.model_validate(incident)
+        _to_incident_response(incident)
         for incident in incidents
     ]
 
@@ -412,3 +455,64 @@ async def add_incident_comment(
     )
 
     return _to_comment_response(comment)
+
+
+# ============================================================
+# 7. ARCHIVE INCIDENT (ADMIN ONLY)
+# ============================================================
+
+
+@router.patch(
+    "/{incident_id}/archive",
+    response_model=IncidentResponse,
+    summary="Soft-archive a closed incident (Admin only)",
+)
+async def archive_incident(
+    incident_id: UUID,
+    actor: UserIdentity = Depends(get_actor_identity),
+    service: IncidentApplicationService = Depends(get_incident_service),
+) -> IncidentResponse:
+    """Soft-archive an incident. Only administrators can archive CLOSED incidents."""
+    if actor.role != UserRole.ADMIN:
+        raise AuthorizationError("Only administrators can archive incidents.")
+
+    archived = await service.archive_incident(
+        incident_id=incident_id,
+        actor_id=actor.id,
+    )
+    return _to_incident_response(archived)
+
+
+# ============================================================
+# 8. MERGE DUPLICATE INCIDENTS (ADMIN ONLY)
+# ============================================================
+
+
+@router.post(
+    "/{incident_id}/merge",
+    response_model=IncidentMergeResponse,
+    summary="Merge duplicate incidents into primary incident (Admin only)",
+)
+async def merge_incidents(
+    incident_id: UUID,
+    payload: IncidentMergeRequest,
+    actor: UserIdentity = Depends(get_actor_identity),
+    service: IncidentApplicationService = Depends(get_incident_service),
+) -> IncidentMergeResponse:
+    """Merge duplicate incidents into this primary incident. Only administrators can merge incidents."""
+    if actor.role != UserRole.ADMIN:
+        raise AuthorizationError("Only administrators can merge duplicate incidents.")
+
+    res = await service.merge_incidents(
+        primary_incident_id=incident_id,
+        duplicate_incident_ids=payload.duplicate_incident_ids,
+        actor_id=actor.id,
+    )
+    return IncidentMergeResponse(
+        primary_incident_id=res["primary_incident_id"],
+        primary_incident_code=res["primary_incident_code"],
+        merged_incident_ids=res["merged_incident_ids"],
+        merged_count=res["merged_count"],
+        merged_at=res["merged_at"],
+    )
+

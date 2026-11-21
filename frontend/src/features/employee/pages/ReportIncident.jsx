@@ -160,6 +160,11 @@ export default function ReportIncident({
                     </p>
 
                     <div className="employee-created-ticket">
+                        <span>Incident Database ID</span>
+                        <strong style={{ fontFamily: "monospace", fontSize: "12px", wordBreak: "break-all" }}>
+                            {createdIncident.id}
+                        </strong>
+
                         <span>Incident code</span>
 
                         <strong>

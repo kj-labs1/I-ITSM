@@ -90,6 +90,12 @@ class SQLAlchemyIncidentRepository(IncidentRepository):
             status=status,
             assigned_technician_id=model.assigned_technician_id,
             resolution_details=model.resolution_details,
+            is_archived=model.is_archived,
+            archived_at=self._as_utc(model.archived_at) if model.archived_at else None,
+            archived_by=model.archived_by,
+            merged_into_incident_id=model.merged_into_incident_id,
+            merged_at=self._as_utc(model.merged_at) if model.merged_at else None,
+            merged_by=model.merged_by,
             created_at=self._as_utc(model.created_at),
             updated_at=self._as_utc(model.updated_at),
         )
@@ -126,6 +132,12 @@ class SQLAlchemyIncidentRepository(IncidentRepository):
             status=incident.status,
             assigned_technician_id=incident.assigned_technician_id,
             resolution_details=incident.resolution_details,
+            is_archived=incident.is_archived,
+            archived_at=incident.archived_at,
+            archived_by=incident.archived_by,
+            merged_into_incident_id=incident.merged_into_incident_id,
+            merged_at=incident.merged_at,
+            merged_by=incident.merged_by,
             created_at=incident.created_at,
             updated_at=incident.updated_at,
         )
@@ -182,10 +194,14 @@ class SQLAlchemyIncidentRepository(IncidentRepository):
         category: IncidentCategory | None = None,
         service_id: UUID | None = None,
         assigned_technician_id: UUID | None = None,
+        is_archived: bool | None = False,
     ) -> list[Incident]:
         """Retrieve incidents using optional search and filter criteria."""
 
         stmt = select(IncidentModel)
+
+        if is_archived is not None:
+            stmt = stmt.where(IncidentModel.is_archived == is_archived)
 
         if reporter_id is not None:
             stmt = stmt.where(
@@ -405,6 +421,12 @@ class SQLAlchemyIncidentRepository(IncidentRepository):
             incident.assigned_technician_id
         )
         existing.resolution_details = incident.resolution_details
+        existing.is_archived = incident.is_archived
+        existing.archived_at = incident.archived_at
+        existing.archived_by = incident.archived_by
+        existing.merged_into_incident_id = incident.merged_into_incident_id
+        existing.merged_at = incident.merged_at
+        existing.merged_by = incident.merged_by
 
         existing.updated_at = datetime.now(UTC)
 

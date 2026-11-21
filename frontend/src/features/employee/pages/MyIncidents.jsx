@@ -29,22 +29,28 @@ export default function MyIncidents({
         loading,
         error,
         loadIncidents,
+        loadArchivedIncidents,
         clearError,
     } = useIncidents(apiClient);
 
     const [filters, setFilters] = useState(INITIAL_FILTERS);
     const [activeFilters, setActiveFilters] = useState({});
+    const [showArchived, setShowArchived] = useState(false);
 
     const isTech = currentUser?.role === "TECHNICIAN";
     const isAdmin = currentUser?.role === "ADMIN";
 
     const fetchIncidents = async (params = {}) => {
         try {
-            await loadIncidents({
-                skip: 0,
-                limit: 50,
-                ...params,
-            });
+            if (showArchived) {
+                await loadArchivedIncidents(params);
+            } else {
+                await loadIncidents({
+                    skip: 0,
+                    limit: 50,
+                    ...params,
+                });
+            }
         } catch {
             // Error is displayed through the hook.
         }
@@ -141,6 +147,59 @@ export default function MyIncidents({
                 )}
             </div>
 
+            {isTech && (
+                (() => {
+                    const criticalActive = incidents.filter(
+                        (i) => i.priority === "P1" && !["RESOLVED", "VERIFIED", "CLOSED"].includes(i.status)
+                    );
+                    const highActive = incidents.filter(
+                        (i) => i.priority === "P2" && !["RESOLVED", "VERIFIED", "CLOSED"].includes(i.status)
+                    );
+                    if (criticalActive.length === 0 && highActive.length === 0) return null;
+
+                    return (
+                        <div className="technician-warnings-container" style={{ margin: "16px 0" }}>
+                            {criticalActive.map((inc) => (
+                                <div key={inc.id} className="warning-card critical">
+                                    <div className="warning-card-content">
+                                        <strong>🚨 Critical Priority Incident (P1) Assigned</strong>
+                                        <p>
+                                            Incident <strong>{inc.incidentCode || inc.id}</strong> ({inc.category}) is currently in{" "}
+                                            <strong>{inc.status}</strong> status. Immediate response required per SLA policy.
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="employee-button employee-button-primary"
+                                        onClick={() => handleOpen(inc.id)}
+                                    >
+                                        Open Incident
+                                    </button>
+                                </div>
+                            ))}
+                            {highActive.map((inc) => (
+                                <div key={inc.id} className="warning-card">
+                                    <div className="warning-card-content">
+                                        <strong>⚠️ High Priority Incident (P2) Active</strong>
+                                        <p>
+                                            Incident <strong>{inc.incidentCode || inc.id}</strong> ({inc.category}) is in{" "}
+                                            <strong>{inc.status}</strong> status. Please review and ensure timely resolution.
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="employee-button employee-button-secondary"
+                                        onClick={() => handleOpen(inc.id)}
+                                    >
+                                        Open Incident
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    );
+                })()
+            )}
+
             <section className="employee-section">
                 <h2>Search and filter</h2>
 
@@ -158,13 +217,40 @@ export default function MyIncidents({
                 </div>
             )}
 
+            {isAdmin && (
+                <div style={{ display: "flex", gap: "8px", margin: "16px 0" }}>
+                    <button
+                        type="button"
+                        className={`employee-button ${!showArchived ? "employee-button-primary" : "employee-button-secondary"}`}
+                        onClick={() => {
+                            setShowArchived(false);
+                            loadIncidents({ skip: 0, limit: 50, ...activeFilters });
+                        }}
+                    >
+                        Active Incidents
+                    </button>
+                    <button
+                        type="button"
+                        className={`employee-button ${showArchived ? "employee-button-primary" : "employee-button-secondary"}`}
+                        onClick={() => {
+                            setShowArchived(true);
+                            loadArchivedIncidents();
+                        }}
+                    >
+                        Archived Incidents
+                    </button>
+                </div>
+            )}
+
             <section className="employee-section">
                 <div className="employee-section-heading">
                     <div>
-                        <h2>Incident records</h2>
+                        <h2>{showArchived ? "Archived Incident Records" : "Incident records"}</h2>
 
                         <p className="employee-muted">
-                            Showing up to 50 matching incidents.
+                            {showArchived
+                                ? "Displaying soft-archived incidents preserved for audit and historical review."
+                                : "Showing up to 50 matching incidents."}
                         </p>
                     </div>
 

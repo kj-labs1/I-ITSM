@@ -68,6 +68,14 @@ class Incident:
     assigned_technician_id: UUID | None = None
     resolution_details: str | None = None
 
+    is_archived: bool = False
+    archived_at: datetime | None = None
+    archived_by: UUID | None = None
+
+    merged_into_incident_id: UUID | None = None
+    merged_at: datetime | None = None
+    merged_by: UUID | None = None
+
     id: UUID = field(default_factory=uuid4)
 
     created_at: datetime = field(
@@ -204,6 +212,45 @@ class Incident:
         self.touch()
 
         return self.priority
+
+    def archive(self, actor_id: UUID) -> None:
+        """Soft-archive a CLOSED incident."""
+        if self.is_archived:
+            raise ValidationError(
+                f"Incident {self.incident_code} is already archived.",
+                error_code="ALREADY_ARCHIVED",
+            )
+
+        if self.status != IncidentStatus.CLOSED:
+            raise ValidationError(
+                f"Only CLOSED incidents can be archived. Current status: '{self.status.value}'.",
+                error_code="INVALID_STATUS_FOR_ARCHIVE",
+            )
+
+        self.is_archived = True
+        self.archived_at = datetime.now(UTC)
+        self.archived_by = actor_id
+        self.touch()
+
+    def merge_into(self, primary_id: UUID, actor_id: UUID) -> None:
+        """Mark this incident as a duplicate merged into a primary incident."""
+        if self.id == primary_id:
+            raise ValidationError(
+                "An incident cannot be merged into itself.",
+                error_code="SELF_MERGE_DISALLOWED",
+            )
+
+        if self.merged_into_incident_id is not None:
+            raise ValidationError(
+                f"Incident {self.incident_code} has already been merged into {self.merged_into_incident_id}.",
+                error_code="ALREADY_MERGED",
+            )
+
+        self.merged_into_incident_id = primary_id
+        self.merged_at = datetime.now(UTC)
+        self.merged_by = actor_id
+        self.touch()
+
     def touch(self) -> None:
         """Update the modification timestamp."""
 

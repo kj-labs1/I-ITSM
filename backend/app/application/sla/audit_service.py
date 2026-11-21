@@ -63,6 +63,9 @@ class AuditService:
         incident_id: UUID | None = None,
         actor_id: UUID | None = None,
         action: str | None = None,
+        event_type: str | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
         skip: int = 0,
         limit: int = 100,
     ) -> list[AuditLogEntry]:
@@ -71,6 +74,9 @@ class AuditService:
             incident_id=incident_id,
             actor_id=actor_id,
             action=action,
+            event_type=event_type,
+            date_from=date_from,
+            date_to=date_to,
             skip=skip,
             limit=limit,
         )

@@ -37,6 +37,13 @@ class TechnicianRecommendation:
     strategy_used: str
     skill_match: bool = True
     is_llm_enhanced: bool = False
+    username: str | None = None
+    full_name: str | None = None
+
+    @property
+    def user_id(self) -> UUID:
+        """Alias for technician_user_id ensuring consistent identity naming."""
+        return self.technician_user_id
 
 
 @dataclass(frozen=True)

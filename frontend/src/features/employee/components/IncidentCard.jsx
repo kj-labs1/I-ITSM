@@ -16,9 +16,14 @@ export default function IncidentCard({
     return (
         <article className="employee-incident-card">
             <div className="employee-incident-card-top">
-                <span className="employee-incident-code">
-                    {incident.incidentCode}
-                </span>
+                <div>
+                    <span className="employee-incident-code">
+                        {incident.incidentCode}
+                    </span>
+                    <span style={{ display: "block", fontSize: "11px", color: "#656d76", fontFamily: "monospace" }}>
+                        ID: {incident.id}
+                    </span>
+                </div>
 
                 <IncidentPriorityBadge
                     priority={incident.priority}

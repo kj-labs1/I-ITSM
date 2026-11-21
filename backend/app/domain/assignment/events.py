@@ -45,6 +45,8 @@ class IncidentAssignedEvent(DomainEvent):
     actor_id: UUID = field(default_factory=uuid4)
     strategy_used: str = ""
     explanation: str = ""
+    incident_code: str = ""
+    reporter_id: UUID | None = None
 
 
 @dataclass(frozen=True)

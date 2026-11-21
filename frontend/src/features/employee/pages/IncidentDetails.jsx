@@ -28,6 +28,8 @@ export default function IncidentDetails({
         loadDuplicates,
         addComment,
         updateIncidentStatus,
+        archiveIncident,
+        mergeIncidents,
     } = useIncidents(apiClient);
 
     const [sla, setSla] = useState(null);
@@ -38,6 +40,17 @@ export default function IncidentDetails({
     const [assignError, setAssignError] = useState("");
     const [techniciansList, setTechniciansList] = useState([]);
     const [selectedTechId, setSelectedTechId] = useState("");
+
+    // Archiving & Merging states
+    const [showArchiveModal, setShowArchiveModal] = useState(false);
+    const [archiving, setArchiving] = useState(false);
+    const [archiveSuccess, setArchiveSuccess] = useState("");
+    const [archiveError, setArchiveError] = useState("");
+
+    const [mergeCandidate, setMergeCandidate] = useState(null);
+    const [merging, setMerging] = useState(false);
+    const [mergeSuccess, setMergeSuccess] = useState("");
+    const [mergeError, setMergeError] = useState("");
 
     const isAdmin = currentUser?.role === "ADMIN";
 
@@ -63,7 +76,7 @@ export default function IncidentDetails({
                 .then((res) => {
                     const list = Array.isArray(res.data) ? res.data : [];
                     setTechniciansList(list);
-                    if (list.length > 0) setSelectedTechId(list[0].id);
+                    if (list.length > 0) setSelectedTechId(list[0].userId || list[0].id);
                 })
                 .catch(() => {});
         }
@@ -104,24 +117,65 @@ export default function IncidentDetails({
         }
     };
 
-    const handleAssignTechnician = async (techIdToAssign) => {
-        const targetTechId = techIdToAssign || selectedTechId;
-        if (!targetTechId) return;
+    const handleAssignTechnician = async (techUserIdToAssign) => {
+        const targetUserId = techUserIdToAssign || selectedTechId;
+        if (!targetUserId) return;
 
         setAssigning(true);
         setAssignError("");
         setAssignSuccess("");
         try {
             await apiClient.post(`/incidents/${incidentId}/assign`, {
-                technicianId: targetTechId,
+                technicianUserId: targetUserId,
+                technicianId: targetUserId,
             });
-            setAssignSuccess("Technician successfully assigned!");
+            setAssignSuccess("Technician successfully assigned using User ID!");
             setRecommendations(null);
             await loadIncident(incidentId);
         } catch (err) {
             setAssignError(err.message || "Failed to assign technician.");
         } finally {
             setAssigning(false);
+        }
+    };
+
+    const handleArchive = async () => {
+        setArchiving(true);
+        setArchiveError("");
+        setArchiveSuccess("");
+        try {
+            await archiveIncident(incidentId);
+            setArchiveSuccess("Incident successfully archived.");
+            setShowArchiveModal(false);
+            await loadIncident(incidentId);
+        } catch (err) {
+            setArchiveError(err.message || "Failed to archive incident.");
+        } finally {
+            setArchiving(false);
+        }
+    };
+
+    const handlePromptMerge = (candidate) => {
+        setMergeCandidate(candidate);
+        setMergeError("");
+        setMergeSuccess("");
+    };
+
+    const handleConfirmMerge = async () => {
+        if (!mergeCandidate) return;
+        setMerging(true);
+        setMergeError("");
+        setMergeSuccess("");
+        try {
+            await mergeIncidents(incidentId, [mergeCandidate.incidentId]);
+            setMergeSuccess(`Successfully merged incident ${mergeCandidate.incidentCode} into this primary incident.`);
+            setMergeCandidate(null);
+            await loadIncident(incidentId);
+            await loadDuplicates(incidentId);
+        } catch (err) {
+            setMergeError(err.message || "Failed to merge duplicate incident.");
+        } finally {
+            setMerging(false);
         }
     };
 
@@ -166,6 +220,9 @@ export default function IncidentDetails({
 
                     <p className="employee-eyebrow">INCIDENT DETAILS</p>
                     <h1>{incident.incidentCode}</h1>
+                    <p style={{ fontFamily: "monospace", fontSize: "12px", color: "#656d76", margin: "4px 0" }}>
+                        Database ID: <strong>{incident.id}</strong>
+                    </p>
                     <p>{incident.description}</p>
                 </div>
 
@@ -176,11 +233,50 @@ export default function IncidentDetails({
             </div>
 
             {error && <div className="employee-alert employee-alert-error">{error}</div>}
+            {archiveError && <div className="employee-alert employee-alert-error">{archiveError}</div>}
+            {archiveSuccess && <div className="employee-alert employee-alert-success">{archiveSuccess}</div>}
+            {mergeError && <div className="employee-alert employee-alert-error">{mergeError}</div>}
+            {mergeSuccess && <div className="employee-alert employee-alert-success">{mergeSuccess}</div>}
+
+            {incident.isArchived && (
+                <div style={{ padding: "14px 18px", backgroundColor: "#fff8c5", border: "1px solid #d4a72c", borderRadius: "6px", margin: "16px 0", color: "#594200" }}>
+                    <strong>This incident is ARCHIVED.</strong> It was archived on {formatDate(incident.archivedAt)}. Archived incidents are preserved in read-only mode for audit compliance.
+                </div>
+            )}
+
+            {incident.mergedIntoIncidentId && (
+                <div style={{ padding: "14px 18px", backgroundColor: "#fbefff", border: "1px solid #d8b9ff", borderRadius: "6px", margin: "16px 0", color: "#54249a", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                        <strong>🔗 This incident was MERGED into primary incident:</strong> <code>{incident.mergedIntoIncidentId}</code>
+                    </div>
+                    <button
+                        type="button"
+                        className="employee-button employee-button-secondary"
+                        style={{ fontSize: "12px", padding: "4px 12px" }}
+                        onClick={() => openAnotherIncident(incident.mergedIntoIncidentId)}
+                    >
+                        View Primary Incident →
+                    </button>
+                </div>
+            )}
 
             {/* INCIDENT INFORMATION */}
             <section className="employee-section">
-                <h2>Incident Information</h2>
-                <div className="employee-details-grid">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <h2>Incident Information</h2>
+                    {isAdmin && incident.status === "CLOSED" && !incident.isArchived && (
+                        <button
+                            type="button"
+                            className="employee-button employee-button-danger"
+                            onClick={() => setShowArchiveModal(true)}
+                            disabled={archiving}
+                        >
+                            Archive Incident
+                        </button>
+                    )}
+                </div>
+                <div className="employee-details-grid" style={{ marginTop: "12px" }}>
+                    <DetailItem label="Incident Database ID" value={incident.id} />
                     <DetailItem label="Incident code" value={incident.incidentCode} />
                     <DetailItem label="Category" value={incident.category} />
                     <DetailItem label="Required Skill" value={incident.requiredSkill || "None"} />
@@ -192,9 +288,19 @@ export default function IncidentDetails({
                     <DetailItem label="Created" value={formatDate(incident.createdAt)} />
                     <DetailItem label="Last updated" value={formatDate(incident.updatedAt)} />
                     <DetailItem
-                        label="Assigned Technician"
+                        label="Assigned Technician (User ID)"
                         value={incident.assignedTechnicianId || "Unassigned"}
                     />
+                    <DetailItem
+                        label="Archived Status"
+                        value={incident.isArchived ? `Archived (${formatDate(incident.archivedAt)})` : "Active (Not Archived)"}
+                    />
+                    {incident.mergedIntoIncidentId && (
+                        <DetailItem
+                            label="Merged Into Primary ID"
+                            value={incident.mergedIntoIncidentId}
+                        />
+                    )}
                 </div>
             </section>
 
@@ -264,7 +370,8 @@ export default function IncidentDetails({
                                     <thead>
                                         <tr>
                                             <th>Rank</th>
-                                            <th>Technician Profile ID</th>
+                                            <th>Technician</th>
+                                            <th>Skills</th>
                                             <th>Match Score</th>
                                             <th>Skill Match</th>
                                             <th>LLM Enhanced</th>
@@ -273,27 +380,64 @@ export default function IncidentDetails({
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {recommendations.recommendations.map((rec) => (
-                                            <tr key={rec.technicianId}>
-                                                <td><strong>#{rec.rank}</strong></td>
-                                                <td style={{ fontFamily: "monospace", fontSize: "12px" }}>{rec.technicianId}</td>
-                                                <td>{rec.score?.toFixed(2)}</td>
-                                                <td>{rec.skillMatch ? "✓ Yes" : "✗ No"}</td>
-                                                <td>{rec.isLlmEnhanced ? "✨ Yes" : "No"}</td>
-                                                <td style={{ fontSize: "13px" }}>{rec.explanation}</td>
-                                                <td>
-                                                    <button
-                                                        type="button"
-                                                        className="employee-button employee-button-primary"
-                                                        style={{ padding: "4px 10px", fontSize: "12px" }}
-                                                        disabled={assigning}
-                                                        onClick={() => handleAssignTechnician(rec.technicianId)}
-                                                    >
-                                                        {assigning ? "Assigning..." : "Assign"}
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {recommendations.recommendations.map((rec) => {
+                                            const techUserId = rec.userId || rec.technicianUserId;
+                                            const techObj = techniciansList.find((t) => t.userId === techUserId || t.id === rec.technicianId);
+                                            const username = rec.username || techObj?.username || "Technician";
+                                            const fullName = rec.fullName || techObj?.fullName || "";
+                                            const skills = (rec.skills && rec.skills.length > 0) ? rec.skills : techObj?.skills;
+
+                                            return (
+                                                <tr key={rec.technicianId}>
+                                                    <td><strong>#{rec.rank}</strong></td>
+                                                    <td>
+                                                        <strong>{username}</strong>
+                                                        {fullName && fullName !== username && (
+                                                            <div style={{ fontSize: "12px", color: "#57606a" }}>{fullName}</div>
+                                                        )}
+                                                    </td>
+                                                    <td>
+                                                        {!skills || skills.length === 0 ? (
+                                                            <span style={{ color: "#656d76", fontStyle: "italic", fontSize: "12px" }}>No skills listed</span>
+                                                        ) : (
+                                                            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                                                                {skills.map((s) => (
+                                                                    <span
+                                                                        key={s.id || s.skillName || s.skill_name}
+                                                                        style={{
+                                                                            fontSize: "11px",
+                                                                            padding: "1px 6px",
+                                                                            borderRadius: "10px",
+                                                                            backgroundColor: "#ddf4ff",
+                                                                            color: "#0969da",
+                                                                            border: "1px solid #54aeff44",
+                                                                            fontWeight: "500",
+                                                                        }}
+                                                                    >
+                                                                        {s.skillName || s.skill_name} ({s.proficiencyLevel || s.proficiency_level}/5)
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td>{rec.score?.toFixed(2)}</td>
+                                                    <td>{rec.skillMatch ? "✓ Yes" : "✗ No"}</td>
+                                                    <td>{rec.isLlmEnhanced ? "✨ Yes" : "No"}</td>
+                                                    <td style={{ fontSize: "13px" }}>{rec.explanation}</td>
+                                                    <td>
+                                                        <button
+                                                            type="button"
+                                                            className="employee-button employee-button-primary"
+                                                            style={{ padding: "4px 10px", fontSize: "12px" }}
+                                                            disabled={assigning}
+                                                            onClick={() => handleAssignTechnician(techUserId)}
+                                                        >
+                                                            {assigning ? "Assigning..." : "Assign"}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>
@@ -307,11 +451,11 @@ export default function IncidentDetails({
                             <select
                                 value={selectedTechId}
                                 onChange={(e) => setSelectedTechId(e.target.value)}
-                                style={{ padding: "8px 12px", borderRadius: "6px", border: "1px solid #d0d7de", minWidth: "300px" }}
+                                style={{ padding: "8px 12px", borderRadius: "6px", border: "1px solid #d0d7de", minWidth: "320px" }}
                             >
                                 {techniciansList.map((t) => (
-                                    <option key={t.id} value={t.id}>
-                                        {t.id} — Status: {t.availability} (Active: {t.activeIncidentCount}/{t.maxCapacity})
+                                    <option key={t.id} value={t.userId}>
+                                        {t.username ? `${t.username} — ${t.fullName || t.username}` : t.fullName || "Technician"} ({t.availability}, Workload: {t.activeIncidentCount}/{t.maxCapacity})
                                     </option>
                                 ))}
                             </select>
@@ -353,7 +497,78 @@ export default function IncidentDetails({
             <DuplicateSuggestions
                 duplicates={duplicates}
                 onOpen={openAnotherIncident}
+                isAdmin={isAdmin && !incident.isArchived && !incident.mergedIntoIncidentId}
+                onMerge={handlePromptMerge}
             />
+
+            {/* ARCHIVE CONFIRMATION MODAL */}
+            {showArchiveModal && (
+                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+                    <div style={{ backgroundColor: "#fff", padding: "24px", borderRadius: "8px", maxWidth: "480px", width: "90%", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}>
+                        <h3 style={{ margin: "0 0 12px 0" }}>Confirm Incident Archiving</h3>
+                        <p style={{ margin: "12px 0", color: "#24292f" }}>
+                            Are you sure you want to archive incident <strong>{incident.incidentCode}</strong> (ID: <code>{incident.id}</code>)?
+                        </p>
+                        <p style={{ fontSize: "13px", color: "#57606a", marginBottom: "20px" }}>
+                            Archived incidents will be excluded from default active incident lists and preserved for compliance and audit logs.
+                        </p>
+                        <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+                            <button
+                                type="button"
+                                className="employee-button employee-button-secondary"
+                                onClick={() => setShowArchiveModal(false)}
+                                disabled={archiving}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                className="employee-button employee-button-danger"
+                                onClick={handleArchive}
+                                disabled={archiving}
+                            >
+                                {archiving ? "Archiving..." : "Yes, Archive"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MERGE CONFIRMATION MODAL */}
+            {mergeCandidate && (
+                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+                    <div style={{ backgroundColor: "#fff", padding: "24px", borderRadius: "8px", maxWidth: "520px", width: "90%", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}>
+                        <h3 style={{ margin: "0 0 12px 0" }}>Confirm Duplicate Incident Merge</h3>
+                        <p style={{ margin: "12px 0", color: "#24292f" }}>
+                            You are merging duplicate incident <strong>{mergeCandidate.incidentCode}</strong> into current primary incident <strong>{incident.incidentCode}</strong>.
+                        </p>
+                        <div style={{ backgroundColor: "#f6f8fa", padding: "12px", borderRadius: "6px", fontSize: "13px", color: "#57606a", marginBottom: "16px" }}>
+                            <div>• <strong>Primary Incident:</strong> {incident.incidentCode} ({incident.id})</div>
+                            <div>• <strong>Duplicate Incident:</strong> {mergeCandidate.incidentCode} ({mergeCandidate.incidentId})</div>
+                            <div>• Duplicate status will be changed to <strong>CLOSED</strong>.</div>
+                            <div>• Duplicate comments and history will be referenced on this primary incident.</div>
+                        </div>
+                        <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+                            <button
+                                type="button"
+                                className="employee-button employee-button-secondary"
+                                onClick={() => setMergeCandidate(null)}
+                                disabled={merging}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                className="employee-button employee-button-primary"
+                                onClick={handleConfirmMerge}
+                                disabled={merging}
+                            >
+                                {merging ? "Merging..." : "Confirm & Merge"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </main>
     );
 }

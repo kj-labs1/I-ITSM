@@ -50,9 +50,24 @@ export default function IncidentTable({
                     {incidents.map((incident) => (
                         <tr key={incident.id}>
                             <td>
-                                <strong>
-                                    {incident.incidentCode}
-                                </strong>
+                                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                    <strong>
+                                        {incident.incidentCode}
+                                    </strong>
+                                    {incident.isArchived && (
+                                        <span style={{ backgroundColor: "#eaeef2", color: "#57606a", fontSize: "10px", fontWeight: "600", padding: "2px 6px", borderRadius: "10px", border: "1px solid #d0d7de" }}>
+                                            ARCHIVED
+                                        </span>
+                                    )}
+                                    {incident.mergedIntoIncidentId && (
+                                        <span style={{ backgroundColor: "#fbefff", color: "#8250df", fontSize: "10px", fontWeight: "600", padding: "2px 6px", borderRadius: "10px", border: "1px solid #d8b9ff" }}>
+                                            MERGED
+                                        </span>
+                                    )}
+                                </div>
+                                <span style={{ display: "block", fontSize: "11px", color: "#656d76", fontFamily: "monospace" }}>
+                                    ID: {incident.id}
+                                </span>
                             </td>
 
                             <td className="employee-description-cell">

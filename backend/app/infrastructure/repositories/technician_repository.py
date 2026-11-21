@@ -52,6 +52,11 @@ class SQLAlchemyTechnicianRepository(TechnicianRepository):
         if isinstance(avail, str):
             avail = AvailabilityStatus(avail)
 
+        user_obj = getattr(model, "user", None)
+        username = user_obj.username if user_obj else None
+        full_name = user_obj.full_name if user_obj else None
+        email = user_obj.email if user_obj else None
+
         tech = Technician(
             user_id=model.user_id,
             _availability=avail,
@@ -62,6 +67,9 @@ class SQLAlchemyTechnicianRepository(TechnicianRepository):
             id=model.id,
             created_at=model.created_at,
             updated_at=model.updated_at,
+            username=username,
+            full_name=full_name,
+            email=email,
         )
         return tech
 
@@ -72,7 +80,10 @@ class SQLAlchemyTechnicianRepository(TechnicianRepository):
     ) -> Technician | None:
         stmt = (
             select(TechnicianModel)
-            .options(selectinload(TechnicianModel.skills))
+            .options(
+                selectinload(TechnicianModel.skills),
+                selectinload(TechnicianModel.user),
+            )
             .where(TechnicianModel.id == technician_id)
         )
         if for_update:
@@ -88,7 +99,10 @@ class SQLAlchemyTechnicianRepository(TechnicianRepository):
     ) -> Technician | None:
         stmt = (
             select(TechnicianModel)
-            .options(selectinload(TechnicianModel.skills))
+            .options(
+                selectinload(TechnicianModel.skills),
+                selectinload(TechnicianModel.user),
+            )
             .where(TechnicianModel.user_id == user_id)
         )
         if for_update:
@@ -100,7 +114,10 @@ class SQLAlchemyTechnicianRepository(TechnicianRepository):
     async def list_all(self, skip: int = 0, limit: int = 100) -> list[Technician]:
         stmt = (
             select(TechnicianModel)
-            .options(selectinload(TechnicianModel.skills))
+            .options(
+                selectinload(TechnicianModel.skills),
+                selectinload(TechnicianModel.user),
+            )
             .order_by(TechnicianModel.created_at.asc())
             .offset(skip)
             .limit(limit)
@@ -112,7 +129,10 @@ class SQLAlchemyTechnicianRepository(TechnicianRepository):
     async def list_available(self) -> list[Technician]:
         stmt = (
             select(TechnicianModel)
-            .options(selectinload(TechnicianModel.skills))
+            .options(
+                selectinload(TechnicianModel.skills),
+                selectinload(TechnicianModel.user),
+            )
             .where(TechnicianModel.availability == AvailabilityStatus.AVAILABLE)
             .order_by(TechnicianModel.experience_years.desc())
         )

@@ -206,6 +206,61 @@ export default function useIncidents(apiClient) {
         [api]
     );
 
+    const archiveIncident = useCallback(
+        async (incidentId) => {
+            setSaving(true);
+            setError("");
+            try {
+                const archived = await api.archiveIncident(incidentId);
+                setIncident((previous) =>
+                    previous?.id === incidentId ? { ...previous, ...archived } : previous
+                );
+                return archived;
+            } catch (err) {
+                setError(getErrorMessage(err));
+                throw err;
+            } finally {
+                setSaving(false);
+            }
+        },
+        [api]
+    );
+
+    const mergeIncidents = useCallback(
+        async (primaryIncidentId, duplicateIncidentIds) => {
+            setSaving(true);
+            setError("");
+            try {
+                const res = await api.mergeIncidents(primaryIncidentId, duplicateIncidentIds);
+                return res;
+            } catch (err) {
+                setError(getErrorMessage(err));
+                throw err;
+            } finally {
+                setSaving(false);
+            }
+        },
+        [api]
+    );
+
+    const loadArchivedIncidents = useCallback(
+        async (params = {}) => {
+            setLoading(true);
+            setError("");
+            try {
+                const data = await api.getArchivedIncidents(params);
+                setIncidents(data);
+                return data;
+            } catch (err) {
+                setError(getErrorMessage(err));
+                throw err;
+            } finally {
+                setLoading(false);
+            }
+        },
+        [api]
+    );
+
     const clearError = useCallback(() => {
         setError("");
     }, []);
@@ -225,6 +280,9 @@ export default function useIncidents(apiClient) {
         updateIncidentStatus,
         addComment,
         loadDuplicates,
+        archiveIncident,
+        mergeIncidents,
+        loadArchivedIncidents,
         clearError,
     };
 }

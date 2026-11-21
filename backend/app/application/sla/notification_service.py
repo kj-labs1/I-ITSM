@@ -90,3 +90,7 @@ class NotificationService:
     async def mark_all_read(self, user_id: UUID) -> int:
         """Mark all unread notifications for ``user_id`` as read."""
         return await self._notification_repo.mark_all_read(user_id)
+
+    async def count_unread(self, user_id: UUID) -> int:
+        """Return the count of unread notifications for ``user_id``."""
+        return await self._notification_repo.count_unread(user_id)

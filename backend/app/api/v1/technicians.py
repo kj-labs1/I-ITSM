@@ -65,6 +65,9 @@ def _to_technician_response(tech: Technician) -> TechnicianResponse:
     return TechnicianResponse(
         id=tech.id,
         user_id=tech.user_id,
+        username=tech.username,
+        full_name=tech.full_name,
+        email=tech.email,
         availability=tech.availability,
         experience_years=tech.experience_years,
         max_capacity=tech.max_capacity,
@@ -119,6 +122,9 @@ async def get_recommendations(
         RecommendationItemResponse(
             technician_id=r.technician_id,
             technician_user_id=r.technician_user_id,
+            user_id=r.technician_user_id,
+            username=r.username,
+            full_name=r.full_name,
             score=r.score,
             rank=r.rank,
             explanation=r.explanation,

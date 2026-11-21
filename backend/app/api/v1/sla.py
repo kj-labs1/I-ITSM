@@ -29,6 +29,7 @@ from app.api.v1.sla_schemas import (
     SLAPolicyCreateRequest,
     SLAPolicyResponse,
     SLAPolicyUpdateRequest,
+    SLASummaryResponse,
     SLATrackingStartRequest,
 )
 from app.application.incident.service import IncidentApplicationService
@@ -126,6 +127,20 @@ async def start_incident_sla(
         started_at=payload.started_at,
     )
     return _tracking_to_response(tracking)
+
+
+@router.get(
+    "/sla/summary",
+    response_model=SLASummaryResponse,
+    summary="Get overall SLA summary metrics and priority breakdown",
+)
+async def get_sla_summary(
+    actor: UserIdentity = Depends(get_actor_identity),
+    sla_service: SLAService = Depends(get_sla_service),
+) -> SLASummaryResponse:
+    """Return live summary stats for SLA compliance, violations, and priority breakdown."""
+    summary = await sla_service.get_sla_summary()
+    return SLASummaryResponse(**summary)
 
 
 @router.get(

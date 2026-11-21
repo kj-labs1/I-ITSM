@@ -15,7 +15,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.deps import get_actor_identity, get_notification_service
-from app.api.v1.sla_schemas import NotificationResponse, NotificationsReadAllResponse
+from app.api.v1.sla_schemas import (
+    NotificationResponse,
+    NotificationsReadAllResponse,
+    NotificationUnreadCountResponse,
+)
 from app.application.sla.notification_service import NotificationService
 from app.domain.identity.user import UserIdentity
 from app.domain.sla.notification import Notification
@@ -61,7 +65,7 @@ async def list_notifications(
 ) -> list[NotificationResponse]:
     """List notifications ordered newest-first."""
     target_user_id = user_id
-    if actor.role != UserRole.ADMIN:
+    if actor.role != UserRole.ADMIN or user_id is None:
         target_user_id = actor.id
     items = await notification_service.list_notifications(
         user_id=target_user_id,
@@ -87,6 +91,45 @@ async def mark_all_notifications_read(
     target_user = actor.id if actor.role != UserRole.ADMIN else (user_id or actor.id)
     count = await notification_service.mark_all_read(target_user)
     return NotificationsReadAllResponse(user_id=target_user, marked_count=count)
+
+
+@router.get(
+    "/unread/count",
+    response_model=NotificationUnreadCountResponse,
+    summary="Get count of unread notifications for current user",
+)
+async def get_unread_count(
+    user_id: UUID | None = Query(default=None, alias="userId"),
+    actor: UserIdentity = Depends(get_actor_identity),
+    notification_service: NotificationService = Depends(get_notification_service),
+) -> NotificationUnreadCountResponse:
+    """Get total count of unread notifications for current user."""
+    target_user_id = actor.id if actor.role != UserRole.ADMIN else (user_id or actor.id)
+    count = await notification_service.count_unread(target_user_id)
+    return NotificationUnreadCountResponse(user_id=target_user_id, unread_count=count)
+
+
+@router.get(
+    "/unread",
+    response_model=list[NotificationResponse],
+    summary="List unread notifications for current user",
+)
+async def list_unread_notifications(
+    user_id: UUID | None = Query(default=None, alias="userId"),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
+    actor: UserIdentity = Depends(get_actor_identity),
+    notification_service: NotificationService = Depends(get_notification_service),
+) -> list[NotificationResponse]:
+    """List unread notifications ordered newest-first."""
+    target_user_id = actor.id if actor.role != UserRole.ADMIN else (user_id or actor.id)
+    items = await notification_service.list_notifications(
+        user_id=target_user_id,
+        unread_only=True,
+        skip=skip,
+        limit=limit,
+    )
+    return [_to_response(item) for item in items]
 
 
 @router.get(

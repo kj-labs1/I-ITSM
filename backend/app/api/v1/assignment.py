@@ -57,9 +57,16 @@ async def assign_technician_to_incident(
             detail="Only administrators can assign technicians to incidents.",
         )
 
+    target_technician_id = payload.technician_user_id or payload.technician_id
+    if not target_technician_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="technician_user_id or technician_id must be provided.",
+        )
+
     res = await assignment_service.assign_technician(
         incident_id=incident_id,
-        technician_id=payload.technician_id,
+        technician_id=target_technician_id,
         actor_id=actor.id,
         strategy_used=payload.strategy_used,
         reason=payload.reason,
@@ -70,6 +77,7 @@ async def assign_technician_to_incident(
         incident_code=res["incidentCode"],
         technician_id=res["technicianId"],
         technician_user_id=res["technicianUserId"],
+        user_id=res["technicianUserId"],
         status=res["status"],
         strategy_used=res["strategyUsed"],
         assigned_by=res["assignedBy"],

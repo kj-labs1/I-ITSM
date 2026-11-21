@@ -88,6 +88,14 @@ class TechnicianModel(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         lazy="selectin",
     )
 
+    # Reference to M1 User
+    user: Mapped[UserModel | None] = relationship(
+        "UserModel",
+        primaryjoin="TechnicianModel.user_id == UserModel.id",
+        foreign_keys=[user_id],
+        lazy="selectin",
+    )
+
     def __repr__(self) -> str:
         return f"<TechnicianModel(id={self.id}, user_id={self.user_id}, availability={self.availability})>"
 

@@ -148,6 +148,14 @@ class IncidentResponse(BaseDTO):
     assigned_technician_id: UUID | None
     resolution_details: str | None
 
+    is_archived: bool = False
+    archived_at: datetime | None = None
+    archived_by: UUID | None = None
+
+    merged_into_incident_id: UUID | None = None
+    merged_at: datetime | None = None
+    merged_by: UUID | None = None
+
     created_at: datetime
     updated_at: datetime
 
@@ -214,6 +222,9 @@ class TechnicianResponse(BaseDTO):
 
     id: UUID
     user_id: UUID
+    username: str | None = None
+    full_name: str | None = None
+    email: str | None = None
     availability: AvailabilityStatus
     experience_years: int
     max_capacity: int
@@ -232,6 +243,9 @@ class RecommendationItemResponse(BaseDTO):
 
     technician_id: UUID
     technician_user_id: UUID
+    user_id: UUID
+    username: str | None = None
+    full_name: str | None = None
     score: float
     rank: int
     explanation: str
@@ -258,8 +272,14 @@ class RecommendationResponse(BaseDTO):
 class AssignTechnicianRequest(BaseDTO):
     """Payload to request incident assignment."""
 
-    technician_id: UUID = Field(
-        description="ID of the selected technician profile or user_id",
+    technician_user_id: UUID | None = Field(
+        default=None,
+        description="User ID of the selected technician from M1 (canonical identifier)",
+        examples=["550e8400-e29b-41d4-a716-446655440000"],
+    )
+    technician_id: UUID | None = Field(
+        default=None,
+        description="ID of technician (user_id or profile_id for backwards compatibility)",
         examples=["550e8400-e29b-41d4-a716-446655440000"],
     )
     strategy_used: str = Field(
@@ -279,9 +299,29 @@ class AssignTechnicianResponse(BaseDTO):
     incident_code: str
     technician_id: UUID
     technician_user_id: UUID
+    user_id: UUID
     status: str
     strategy_used: str
     assigned_by: UUID
+
+
+class IncidentMergeRequest(BaseDTO):
+    """Request DTO for merging duplicate incidents into a primary incident."""
+
+    duplicate_incident_ids: list[UUID] = Field(
+        min_length=1,
+        description="List of duplicate incident UUIDs to merge into primary",
+    )
+
+
+class IncidentMergeResponse(BaseDTO):
+    """Response DTO for merged incidents."""
+
+    primary_incident_id: UUID
+    primary_incident_code: str
+    merged_incident_ids: list[UUID]
+    merged_count: int
+    merged_at: datetime
 
 class PotentialDuplicateResponse(BaseDTO):
     """Read representation of a potential duplicate incident."""

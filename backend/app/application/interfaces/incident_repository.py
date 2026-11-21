@@ -72,6 +72,7 @@ class IncidentRepository(ABC):
     category: IncidentCategory | None = None,
     service_id: UUID | None = None,
     assigned_technician_id: UUID | None = None,
+    is_archived: bool | None = False,
 ) -> list[Incident]:
         """Retrieve incidents matching the supplied search criteria."""
     ...

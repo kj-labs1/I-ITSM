@@ -9,6 +9,7 @@ OOP Design:
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from datetime import datetime
 from uuid import UUID
 
 from app.domain.sla.audit import AuditLogEntry
@@ -63,6 +64,11 @@ class SLATrackingRepository(ABC):
         ...
 
     @abstractmethod
+    async def list_all(self) -> list[IncidentSLATracking]:
+        """Return all SLA tracking records for system reporting and summaries."""
+        ...
+
+    @abstractmethod
     async def list_violations(
         self,
         include_warnings: bool = False,
@@ -96,6 +102,9 @@ class AuditLogRepository(ABC):
         incident_id: UUID | None = None,
         actor_id: UUID | None = None,
         action: str | None = None,
+        event_type: str | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
         skip: int = 0,
         limit: int = 100,
     ) -> list[AuditLogEntry]:
@@ -122,6 +131,11 @@ class NotificationRepository(ABC):
         skip: int = 0,
         limit: int = 50,
     ) -> list[Notification]:
+        ...
+
+    @abstractmethod
+    async def count_unread(self, user_id: UUID) -> int:
+        """Count total unread notifications for a specific user UUID."""
         ...
 
     @abstractmethod

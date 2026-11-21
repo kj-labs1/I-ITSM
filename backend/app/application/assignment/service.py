@@ -140,6 +140,8 @@ class SmartTechnicianRecommendationService:
                         strategy_used=r.strategy_used,
                         skill_match=r.skill_match,
                         is_llm_enhanced=False,
+                        username=r.username,
+                        full_name=r.full_name,
                     )
                     for r in result.recommendations
                 ]
@@ -210,6 +212,8 @@ class SmartTechnicianRecommendationService:
                         strategy_used=f"{deterministic_result.strategy_used}+LLM",
                         skill_match=True,
                         is_llm_enhanced=True,
+                        username=matching_rec.username,
+                        full_name=matching_rec.full_name,
                     )
                 )
 
@@ -275,10 +279,17 @@ class TechnicianAssignmentService:
         if incident is None:
             raise IncidentNotFoundError(resource_id=str(incident_id))
 
+        # Step 2: Validate Technician by user_id (canonical identity from M1) first, then profile id
+        tech = await self.technician_repo.get_by_user_id(technician_id, for_update=True)
+        if tech is None:
+            tech = await self.technician_repo.get_by_id(technician_id, for_update=True)
+            if tech is None:
+                raise TechnicianNotFoundError(resource_id=str(technician_id))
+
         if incident.assigned_technician_id is not None:
-            if incident.assigned_technician_id == technician_id:
+            if incident.assigned_technician_id in (tech.user_id, tech.id):
                 raise DuplicateAssignmentError(
-                    f"Incident {incident.incident_code} is already assigned to technician {technician_id}."
+                    f"Incident {incident.incident_code} is already assigned to technician {tech.user_id}."
                 )
             raise DuplicateAssignmentError(
                 f"Incident {incident.incident_code} is already assigned to another technician."
@@ -288,14 +299,6 @@ class TechnicianAssignmentService:
             raise InvalidAssignmentError(
                 f"Incident {incident.incident_code} in status '{incident.status.value}' cannot be assigned."
             )
-
-        # Step 2: Validate Technician (row lock prevents concurrent oversubscription)
-        tech = await self.technician_repo.get_by_id(technician_id, for_update=True)
-        if tech is None:
-            # Also check by user_id
-            tech = await self.technician_repo.get_by_user_id(technician_id, for_update=True)
-            if tech is None:
-                raise TechnicianNotFoundError(resource_id=str(technician_id))
 
         if not tech.is_available:
             raise TechnicianUnavailableError(
@@ -333,6 +336,8 @@ class TechnicianAssignmentService:
             actor_id=actor_id,
             strategy_used=strategy_used,
             explanation=reason or f"Assigned via {strategy_used} strategy.",
+            incident_code=incident.incident_code,
+            reporter_id=incident.reporter_id,
         )
         await self.event_publisher.publish(assigned_event)
         logger.info(

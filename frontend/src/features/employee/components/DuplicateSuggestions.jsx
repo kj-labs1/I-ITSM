@@ -6,6 +6,8 @@ import IncidentStatusBadge from "./IncidentStatusBadge";
 export default function DuplicateSuggestions({
     duplicates = [],
     onOpen,
+    onMerge,
+    isAdmin = false,
 }) {
     return (
         <section className="employee-section">
@@ -51,15 +53,27 @@ export default function DuplicateSuggestions({
 
                             <p>{item.explanation}</p>
 
-                            <button
-                                type="button"
-                                className="employee-text-button"
-                                onClick={() =>
-                                    onOpen?.(item.incidentId)
-                                }
-                            >
-                                View incident
-                            </button>
+                            <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "8px" }}>
+                                <button
+                                    type="button"
+                                    className="employee-text-button"
+                                    onClick={() =>
+                                        onOpen?.(item.incidentId)
+                                    }
+                                >
+                                    View incident
+                                </button>
+                                {isAdmin && (
+                                    <button
+                                        type="button"
+                                        className="employee-button employee-button-secondary"
+                                        style={{ padding: "4px 10px", fontSize: "12px" }}
+                                        onClick={() => onMerge?.(item)}
+                                    >
+                                        Merge Duplicate
+                                    </button>
+                                )}
+                            </div>
                         </article>
                     ))}
                 </div>

@@ -12,7 +12,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.interfaces.sla_repositories import (
@@ -232,6 +232,12 @@ class SQLAlchemySLATrackingRepository(SLATrackingRepository):
         )
         return [_to_domain_tracking(m) for m in result.scalars().all()]
 
+    async def list_all(self) -> list[IncidentSLATracking]:
+        result = await self._session.execute(
+            select(IncidentSLATrackingModel).order_by(IncidentSLATrackingModel.created_at.desc())
+        )
+        return [_to_domain_tracking(m) for m in result.scalars().all()]
+
     async def list_violations(
         self,
         include_warnings: bool = False,
@@ -314,6 +320,9 @@ class SQLAlchemyAuditLogRepository(AuditLogRepository):
         incident_id: UUID | None = None,
         actor_id: UUID | None = None,
         action: str | None = None,
+        event_type: str | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
         skip: int = 0,
         limit: int = 100,
     ) -> list[AuditLogEntry]:
@@ -324,6 +333,12 @@ class SQLAlchemyAuditLogRepository(AuditLogRepository):
             stmt = stmt.where(AuditLogModel.actor_id == actor_id)
         if action is not None:
             stmt = stmt.where(AuditLogModel.action == action)
+        if event_type is not None:
+            stmt = stmt.where(AuditLogModel.event_type == event_type)
+        if date_from is not None:
+            stmt = stmt.where(AuditLogModel.occurred_at >= date_from)
+        if date_to is not None:
+            stmt = stmt.where(AuditLogModel.occurred_at <= date_to)
 
         stmt = stmt.order_by(AuditLogModel.occurred_at.desc()).offset(skip).limit(limit)
         result = await self._session.execute(stmt)
@@ -408,3 +423,12 @@ class SQLAlchemyNotificationRepository(NotificationRepository):
         )
         await self._session.flush()
         return int(result.rowcount or 0)
+
+    async def count_unread(self, user_id: UUID) -> int:
+        result = await self._session.execute(
+            select(func.count()).select_from(NotificationModel).where(
+                NotificationModel.user_id == user_id,
+                NotificationModel.is_read.is_(False),
+            )
+        )
+        return int(result.scalar_one() or 0)

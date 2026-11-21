@@ -89,6 +89,8 @@ class SkillBasedAssignmentStrategy(AssignmentStrategy):
                     rank=rank,
                     explanation=explanation,
                     strategy_used=self.strategy_name,
+                    username=tech.username,
+                    full_name=tech.full_name,
                 )
             )
 
@@ -161,6 +163,8 @@ class LeastLoadedAssignmentStrategy(AssignmentStrategy):
                     rank=rank,
                     explanation=explanation,
                     strategy_used=self.strategy_name,
+                    username=tech.username,
+                    full_name=tech.full_name,
                 )
             )
 

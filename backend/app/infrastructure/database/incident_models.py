@@ -17,7 +17,9 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
+    DateTime,
     ForeignKey,
     Index,
     Integer,
@@ -80,6 +82,8 @@ class IncidentModel(Base, UUIDPrimaryKeyMixin, TimestampMixin):
             "ix_incidents_assigned_technician_id",
             "assigned_technician_id",
         ),
+        Index("ix_incidents_is_archived", "is_archived"),
+        Index("ix_incidents_merged_into_incident_id", "merged_into_incident_id"),
     )
 
     # Human-readable incident identifier, e.g. INC-1001.
@@ -178,6 +182,40 @@ class IncidentModel(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     resolution_details: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
+    )
+
+    # Archiving fields (Task 3)
+    is_archived: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default="false",
+        nullable=False,
+    )
+    archived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    archived_by: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        nullable=True,
+        comment="Logical reference to users.id who archived the incident",
+    )
+
+    # Duplication merging fields (Task 4)
+    merged_into_incident_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("incidents.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="Reference to canonical primary incident if merged",
+    )
+    merged_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    merged_by: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        nullable=True,
+        comment="Logical reference to users.id who merged the incident",
     )
 
     # Composition: one Incident HAS multiple IncidentComments.

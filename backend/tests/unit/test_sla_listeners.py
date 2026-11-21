@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
+from datetime import datetime
 from uuid import UUID, uuid4
 
 import pytest
@@ -27,7 +28,15 @@ from app.application.sla.listeners import (
 )
 from app.application.sla.notification_service import NotificationService
 from app.application.sla.sla_service import SLAService
-from app.domain.assignment.events import DomainEvent, IncidentAssignedEvent
+from app.domain.assignment.events import (
+    DomainEvent,
+    IncidentAssignedEvent,
+    TechnicianAvailabilityChangedEvent,
+)
+from app.domain.incident.events import (
+    IncidentCommentAddedEvent,
+    IncidentCreatedEvent,
+)
 from app.domain.sla.audit import AuditLogEntry
 from app.domain.sla.enums import AuditAction, NotificationType, SLAStatus
 from app.domain.sla.events import SLABreachedEvent, SLAWarningEvent
@@ -80,6 +89,9 @@ class InMemoryTrackingRepo(SLATrackingRepository):
     async def list_active(self) -> list[IncidentSLATracking]:
         return [t for t in self.items.values() if t.resolved_at is None]
 
+    async def list_all(self) -> list[IncidentSLATracking]:
+        return list(self.items.values())
+
     async def list_violations(
         self,
         include_warnings: bool = False,
@@ -115,6 +127,9 @@ class InMemoryAuditRepo(AuditLogRepository):
         incident_id: UUID | None = None,
         actor_id: UUID | None = None,
         action: str | None = None,
+        event_type: str | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
         skip: int = 0,
         limit: int = 100,
     ) -> list[AuditLogEntry]:
@@ -125,6 +140,12 @@ class InMemoryAuditRepo(AuditLogRepository):
             matched = [e for e in matched if e.actor_id == actor_id]
         if action:
             matched = [e for e in matched if e.action == action]
+        if event_type:
+            matched = [e for e in matched if e.event_type == event_type]
+        if date_from:
+            matched = [e for e in matched if e.occurred_at >= date_from]
+        if date_to:
+            matched = [e for e in matched if e.occurred_at <= date_to]
         return matched[skip : skip + limit]
 
 
@@ -167,6 +188,9 @@ class InMemoryNotificationRepo(NotificationRepository):
                 n.mark_as_read()
                 count += 1
         return count
+
+    async def count_unread(self, user_id: UUID) -> int:
+        return sum(1 for n in self.items.values() if n.user_id == user_id and not n.is_read)
 
 
 @dataclass(frozen=True)
@@ -274,3 +298,68 @@ async def test_observer_listeners_react_to_assignment_and_sla_events() -> None:
         )
     )
     assert tracking_repo.items[incident_id].resolved_at is not None
+
+
+@pytest.mark.asyncio
+async def test_incident_lifecycle_and_comment_notifications() -> None:
+    bus = InProcessEventBus()
+    audit_repo = InMemoryAuditRepo()
+    notif_repo = InMemoryNotificationRepo()
+    audit_service = AuditService(audit_repo)
+    notif_service = NotificationService(notif_repo)
+
+    @asynccontextmanager
+    async def audit_ctx():
+        yield audit_service
+
+    @asynccontextmanager
+    async def notif_ctx():
+        yield notif_service
+
+    bus.subscribe(DomainEvent, AuditEventListener(audit_ctx))
+    bus.subscribe(DomainEvent, NotificationEventListener(notif_ctx))
+
+    incident_id = uuid4()
+    reporter_id = uuid4()
+    tech_id = uuid4()
+
+    # 1. IncidentCreatedEvent -> Reporter receives notification
+    await bus.publish(
+        IncidentCreatedEvent(
+            incident_id=incident_id,
+            incident_code="INC-9999",
+            reporter_id=reporter_id,
+            priority=Priority.P2,
+        )
+    )
+    rep_notifs = await notif_repo.list_for_user(user_id=reporter_id)
+    assert len(rep_notifs) == 1
+    assert rep_notifs[0].notification_type == NotificationType.INCIDENT_CREATED
+
+    # 2. IncidentCommentAddedEvent -> Assigned tech receives notification
+    await bus.publish(
+        IncidentCommentAddedEvent(
+            incident_id=incident_id,
+            incident_code="INC-9999",
+            author_id=reporter_id,
+            reporter_id=reporter_id,
+            assigned_technician_id=tech_id,
+            content_snippet="Please look into this ASAP.",
+        )
+    )
+    tech_notifs = await notif_repo.list_for_user(user_id=tech_id)
+    assert len(tech_notifs) == 1
+    assert tech_notifs[0].notification_type == NotificationType.COMMENT_ADDED
+
+    # 3. TechnicianAvailabilityChangedEvent -> Tech notified
+    await bus.publish(
+        TechnicianAvailabilityChangedEvent(
+            technician_id=tech_id,
+            previous_status="AVAILABLE",
+            new_status="BUSY",
+        )
+    )
+    tech_notifs_updated = await notif_repo.list_for_user(user_id=tech_id)
+    assert len(tech_notifs_updated) == 2
+    types = {n.notification_type for n in tech_notifs_updated}
+    assert NotificationType.AVAILABILITY_CHANGED in types
