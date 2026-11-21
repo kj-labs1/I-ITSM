@@ -60,10 +60,11 @@ This backend foundation was engineered specifically for **CS F213 / MAC F212 (Ob
 | Design Pattern | Implementation Classes | Location | Real Architectural Purpose |
 |---|---|---|---|
 | **Strategy Pattern** | `AssignmentStrategy`, `SkillBasedAssignmentStrategy`, `LeastLoadedAssignmentStrategy` | `app/domain/assignment/` | Allows switching between skill-based and workload-based ranking algorithms at runtime per request. |
-| **Repository Pattern** | `TechnicianRepository`, `SQLAlchemyTechnicianRepository` | `app/application/interfaces/repositories.py`, `app/infrastructure/repositories/` | Decouples business logic from SQLAlchemy queries, allowing in-memory testing and seamless database migrations. |
+| **State Machine Pattern** | `IncidentStatus`, `Incident` lifecycle transitions | `app/domain/incident/` | Enforces valid status transitions (`NEW` $\rightarrow$ `CLASSIFIED` $\rightarrow$ `ASSIGNED` $\rightarrow$ `ACKNOWLEDGED` $\rightarrow$ `IN_PROGRESS` $\rightarrow$ `RESOLVED` $\rightarrow$ `VERIFIED` $\rightarrow$ `CLOSED`). |
+| **Observer Pattern** | `EventPublisher`, `InProcessEventBus`, `SLALifecycleEventListener`, `AuditEventListener`, `NotificationEventListener` | `app/infrastructure/events/`, `app/application/sla/listeners.py` | Decouples lifecycle event emission from SLA tracking timers, audit trail persistence, and user notification delivery. |
+| **Repository Pattern** | `TechnicianRepository`, `IncidentRepository`, `SLAPolicyRepository`, `AuditLogRepository`, `NotificationRepository` | `app/application/interfaces/`, `app/infrastructure/repositories/` | Decouples business logic from SQLAlchemy queries, allowing in-memory testing and seamless database migrations. |
 | **Factory Pattern** | `AssignmentStrategyFactory`, `LLMProviderFactory` | `app/application/assignment/factory.py`, `app/integrations/llm/factory.py` | Centralizes object creation and decouples callers from concrete strategy and provider implementations. |
 | **Adapter Pattern** | `OpenAICompatibleProvider`, `MockLLMProvider`, `StubIncidentService` | `app/integrations/llm/`, `app/integrations/incidents/` | Adapts external third-party protocols (OpenAI HTTP REST, Member 2 boundary) to internal domain interfaces. |
-| **Observer Pattern** | `EventPublisher`, `InProcessEventBus`, `IncidentAssignedEvent` | `app/application/interfaces/event_publisher.py`, `app/infrastructure/events/event_bus.py` | Decouples assignment engine from Member 4's audit and notification handlers. |
 
 ---
 

@@ -1,27 +1,135 @@
-# API Contracts Specification
+# REST API Contracts Specification
 
-**Prefix:** `/api/v1`  
+**Base URL Prefix:** `/api/v1`  
 **Standard Headers:**
 - `Content-Type: application/json`
-- `Authorization: Bearer <jwt-token>` (for protected routes)
+- `Authorization: Bearer <jwt-token>` (for authenticated endpoints)
 
 ---
 
-## 1. Technician Management Endpoints (Module 3)
+## 1. Authentication & Platform (Module 1)
 
-### 1.1 List Technicians
-- **Method & Path:** `GET /api/v1/technicians`
-- **Query Parameters:**
-  - `skip` (int, default `0`)
-  - `limit` (int, default `50`, max `100`)
+### 1.1 User Registration
+- **Method & Route:** `POST /api/v1/auth/register`
+- **Auth:** Public
+- **Request Body:**
+  ```json
+  {
+    "username": "alice_smith",
+    "email": "alice@example.com",
+    "fullName": "Alice Smith",
+    "password": "SecurePassword123!"
+  }
+  ```
+- **Response 201 Created:** Returns `UserResponse` with default `EMPLOYEE` role.
+- **Response 409 Conflict:** If username or email is already registered.
+
+### 1.2 User Login
+- **Method & Route:** `POST /api/v1/auth/login`
+- **Auth:** Public (Form Data: `OAuth2PasswordRequestForm` with `username` and `password`)
+- **Response 200 OK:**
+  ```json
+  {
+    "accessToken": "eyJhbGciOi...",
+    "tokenType": "bearer"
+  }
+  ```
+- **Response 401 Unauthorized:** If credentials are invalid or user account is deactivated.
+
+### 1.3 Current User Profile
+- **Method & Route:** `GET /api/v1/auth/me`
+- **Auth:** Any authenticated user
+- **Response 200 OK:** Returns logged-in `UserResponse` (`id`, `username`, `email`, `fullName`, `role`, `isActive`).
+
+### 1.4 User Management (Admin Only)
+- `GET /api/v1/users`: List all registered system users.
+- `GET /api/v1/users/summary`: Returns total, active, inactive, and role-segmented user metrics.
+- `GET /api/v1/users/{user_id}`: Retrieve detailed user account information.
+- `PATCH /api/v1/users/{user_id}`: Update user full name, role, or active status.
+- `DELETE /api/v1/users/{user_id}`: Soft-deactivate a user account (prevents self-deactivation).
+
+### 1.5 Service Catalogue & Categories
+- `GET /api/v1/services`: List active IT service catalogue entries.
+- `POST /api/v1/services` (Admin): Create service catalogue item with `businessCriticality` (1–5).
+- `PATCH /api/v1/services/{service_id}` (Admin): Update service details or criticality.
+- `DELETE /api/v1/services/{service_id}` (Admin): Deactivate service.
+- `GET /api/v1/categories`: List active incident categories and required skill mappings.
+- `POST /api/v1/categories` (Admin): Create category mapping.
+- `PATCH /api/v1/categories/{category_id}` (Admin): Update category definition.
+- `DELETE /api/v1/categories/{category_id}` (Admin): Deactivate category.
+- `GET /api/v1/reports/summary` (Admin): Returns aggregated executive KPI summary.
+
+---
+
+## 2. Incident Management & Lifecycle (Module 2)
+
+### 2.1 Create Incident
+- **Method & Route:** `POST /api/v1/incidents`
+- **Auth:** Authenticated user (`EMPLOYEE` or `ADMIN`)
+- **Request Body:**
+  ```json
+  {
+    "serviceId": "550e8400-e29b-41d4-a716-446655440000",
+    "category": "DATABASE",
+    "description": "Production PostgreSQL cluster experiencing query timeouts.",
+    "impact": 4,
+    "urgency": 5,
+    "businessCriticality": 4,
+    "requiredSkill": "DATABASE"
+  }
+  ```
+- **Response 201 Created:** Returns `IncidentResponse` with deterministic calculated priority (`P1`–`P4`), initial status `NEW`, and canonical incident code `INC-xxxxxxxx`.
+
+### 2.2 List Incidents
+- **Method & Route:** `GET /api/v1/incidents`
+- **Query Parameters:** `status`, `category`, `priority`, `serviceId`, `reporterId`, `assignedTechnicianId`, `search`, `skip`, `limit`
+- **Role-Based Visibility:**
+  - `EMPLOYEE`: Returns only incidents created by the calling user.
+  - `TECHNICIAN`: Returns incidents assigned to the calling technician.
+  - `ADMIN`: Returns all enterprise incidents.
+
+### 2.3 Incident Details & Update
+- `GET /api/v1/incidents/{incident_id}`: Returns `IncidentDetailsResponse` with associated comments.
+- `PATCH /api/v1/incidents/{incident_id}`: Update incident description, impact, or urgency (recalculates priority).
+- `POST /api/v1/incidents/{incident_id}/comments`: Add comment note (`authorId` inferred from JWT).
+
+### 2.4 Status Lifecycle Transitions
+- **Method & Route:** `PATCH /api/v1/incidents/{incident_id}/status`
+- **Request Body:**
+  ```json
+  {
+    "status": "IN_PROGRESS",
+    "resolutionDetails": null
+  }
+  ```
+- **State Machine Rules:** Validates allowed transitions (`NEW` $\rightarrow$ `CLASSIFIED` $\rightarrow$ `ASSIGNED` $\rightarrow$ `ACKNOWLEDGED` $\rightarrow$ `IN_PROGRESS` $\rightarrow$ `RESOLVED` $\rightarrow$ `VERIFIED` $\rightarrow$ `CLOSED`). Transitions to `RESOLVED` require non-empty `resolutionDetails`.
+
+### 2.5 Duplicate Detection & Merging
+- `GET /api/v1/incidents/{incident_id}/duplicates`: Trigram/keyword similarity scoring returning potential duplicates.
+- `POST /api/v1/incidents/{incident_id}/merge` (Admin): Merges duplicate ticket into primary incident; automatically closes secondary ticket, links `merged_into_incident_id`, and creates audit log entries.
+
+### 2.6 Incident Archiving
+- `PATCH /api/v1/incidents/{incident_id}/archive` (Admin): Soft-archives a closed incident into read-only audit-compliant storage.
+- `GET /api/v1/incidents/archived` (Admin): Lists historical soft-archived incidents.
+
+---
+
+## 3. Technician Management & Recommendations (Module 3)
+
+### 3.1 List Technicians
+- **Method & Route:** `GET /api/v1/technicians`
+- **Auth:** Any authenticated user
 - **Response 200 OK:**
   ```json
   [
     {
       "id": "550e8400-e29b-41d4-a716-446655440000",
       "userId": "123e4567-e89b-12d3-a456-426614174000",
+      "username": "tech_charlie",
+      "fullName": "Charlie Technician",
+      "email": "charlie@example.com",
       "availability": "AVAILABLE",
-      "experienceYears": 5,
+      "experienceYears": 6,
       "maxCapacity": 10,
       "activeIncidentCount": 2,
       "remainingCapacity": 8,
@@ -29,293 +137,61 @@
         {
           "id": "770e8400-e29b-41d4-a716-446655440001",
           "technicianId": "550e8400-e29b-41d4-a716-446655440000",
-          "skillName": "NETWORK",
-          "proficiencyLevel": 4,
-          "createdAt": "2026-11-12T10:00:00Z",
-          "updatedAt": "2026-11-12T10:00:00Z"
+          "skillName": "DATABASE",
+          "proficiencyLevel": 5
         }
-      ],
-      "createdAt": "2026-11-12T10:00:00Z",
-      "updatedAt": "2026-11-12T10:00:00Z"
+      ]
     }
   ]
   ```
 
-### 1.2 Create Technician Profile
-- **Method & Path:** `POST /api/v1/technicians`
+### 3.2 Smart Recommendations
+- **Method & Route:** `GET /api/v1/technicians/recommendations`
+- **Auth:** Admin only
+- **Query Parameters:**
+  - `incidentId` (UUID, required): Target incident to evaluate.
+  - `strategy` (enum, default `SKILL_BASED`): `SKILL_BASED` or `LEAST_LOADED`.
+  - `useLlm` (boolean, default `false`): Enables optional AI ranking augmentation.
+- **Response 200 OK:** Returns `RecommendationResponse` with candidate rankings, composite match scores, explainable reasoning strings, and LLM enhancement indicators.
+
+### 3.3 Incident Assignment
+- **Method & Route:** `POST /api/v1/incidents/{incident_id}/assign`
+- **Auth:** Admin only
 - **Request Body:**
   ```json
   {
-    "userId": "123e4567-e89b-12d3-a456-426614174000",
-    "experienceYears": 4,
-    "maxCapacity": 8,
-    "skills": [
-      {
-        "skillName": "DATABASE",
-        "proficiencyLevel": 4
-      }
-    ]
+    "technicianId": "123e4567-e89b-12d3-a456-426614174000"
   }
   ```
-- **Response 201 Created:** Returns created `TechnicianResponse`.
-- **Response 409 Conflict:** If technician profile already exists for `userId`.
+- **Validation:** Concurrently checks technician availability, skill match, and guarantees active workload does not exceed `maxCapacity`. Transitions incident to `ASSIGNED` and fires `IncidentAssignedEvent`.
 
-### 1.3 Get Technician Details
-- **Method & Path:** `GET /api/v1/technicians/{technician_id}`
-- **Response 200 OK:** Returns `TechnicianResponse`.
-- **Response 404 Not Found:** If technician does not exist.
-
-### 1.4 Update Technician Parameters
-- **Method & Path:** `PATCH /api/v1/technicians/{technician_id}`
-- **Request Body:**
-  ```json
-  {
-    "experienceYears": 6,
-    "maxCapacity": 12
-  }
-  ```
-- **Response 200 OK:** Returns updated `TechnicianResponse`.
-
-### 1.5 Update Availability Status
-- **Method & Path:** `PATCH /api/v1/technicians/{technician_id}/availability`
-- **Request Body:**
-  ```json
-  {
-    "availability": "BUSY"
-  }
-  ```
-- **Response 200 OK:** Returns updated `TechnicianResponse`.
-
-### 1.6 Skills Management
-- `GET /api/v1/technicians/{technician_id}/skills`: Returns `list[SkillResponse]`.
-- `POST /api/v1/technicians/{technician_id}/skills`: Creates/updates skill proficiency.
+### 3.4 Operational Profile & Skills Management
+- `PATCH /api/v1/technicians/{technician_id}` (Admin): Updates `experienceYears` and `maxCapacity`.
+- `PATCH /api/v1/technicians/{technician_id}/availability`: Updates operational availability (`AVAILABLE` $\leftrightarrow$ `BUSY`).
+- `GET /api/v1/technicians/{technician_id}/skills`: Retrieves skill portfolio.
+- `POST /api/v1/technicians/{technician_id}/skills`: Adds or updates skill proficiency (1–5).
 - `DELETE /api/v1/technicians/{technician_id}/skills/{skill_name}`: Removes a skill.
 
 ---
 
-## 2. Recommendation Endpoint (Module 3)
+## 4. SLA, Notifications & Audit Trail (Module 4)
 
-- **Method & Path:** `GET /api/v1/technicians/recommendations`
-- **Query Parameters:**
-  - `incidentId` (UUID, required): The target incident.
-  - `strategy` (enum, optional): `SKILL_BASED` (default) or `LEAST_LOADED`.
-  - `useLlm` (bool, optional, default `false`): When `true`, augments recommendations with LLM evaluation.
-- **Response 200 OK:**
-  ```json
-  {
-    "incidentId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-    "strategyUsed": "SKILL_BASED",
-    "totalCandidates": 5,
-    "eligibleCandidates": 2,
-    "isLlmEnhanced": false,
-    "evaluationTimeMs": 2.4,
-    "recommendations": [
-      {
-        "technicianId": "550e8400-e29b-41d4-a716-446655440000",
-        "technicianUserId": "123e4567-e89b-12d3-a456-426614174000",
-        "score": 116.0,
-        "rank": 1,
-        "explanation": "Skill 'NETWORK' proficiency: 5/5, experience: 8 years, active incidents: 1/10, composite score: 116.0",
-        "strategyUsed": "SKILL_BASED",
-        "skillMatch": true,
-        "isLlmEnhanced": false
-      }
-    ]
-  }
-  ```
+### 4.1 SLA Policies & Sweeps
+- `GET /api/v1/sla/policies`: List target response and resolution durations for $P1$, $P2$, $P3$, and $P4$.
+- `POST /api/v1/sla/policies` (Admin): Create SLA policy.
+- `PATCH /api/v1/sla/policies/{priority}` (Admin): Update target hours for a priority level.
+- `GET /api/v1/sla/summary` (Admin): Returns overall compliance percentage, total tracked, breached, and approaching-warning counts.
+- `GET /api/v1/sla/violations` (Admin): Lists breached incidents and tickets approaching deadline.
+- `POST /api/v1/sla/check` (Admin): Manually triggers an on-demand breach evaluation sweep.
+- `GET /api/v1/incidents/{incident_id}/sla`: Returns live tracking status, response/resolution deadlines, and breach flags for a ticket.
 
----
+### 4.2 Notifications
+- `GET /api/v1/notifications`: List recent notifications for the logged-in user.
+- `GET /api/v1/notifications/unread`: List unread notifications.
+- `GET /api/v1/notifications/unread/count`: Lightweight counter endpoint for real-time badge polling.
+- `PATCH /api/v1/notifications/{notification_id}/read`: Mark specific notification as read.
+- `PATCH /api/v1/notifications/read-all`: Mark all notifications as read for current user.
 
-## 3. Incident Assignment Endpoint (Module 3)
-
-- **Method & Path:** `POST /api/v1/incidents/{incident_id}/assign`
-- **Request Body:**
-  ```json
-  {
-    "technicianId": "550e8400-e29b-41d4-a716-446655440000",
-    "strategyUsed": "SKILL_BASED",
-    "reason": "Top scoring candidate with 5/5 skill proficiency."
-  }
-  ```
-- **Response 200 OK:**
-  ```json
-  {
-    "incidentId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-    "incidentCode": "INC-1001",
-    "technicianId": "550e8400-e29b-41d4-a716-446655440000",
-    "technicianUserId": "123e4567-e89b-12d3-a456-426614174000",
-    "status": "ASSIGNED",
-    "strategyUsed": "SKILL_BASED",
-    "assignedBy": "00000000-0000-0000-0000-000000000001"
-  }
-  ```
-- **Error Responses:**
-  - `400 Bad Request`: Invalid payload shape.
-  - `404 Not Found`: Incident or technician does not exist.
-  - `409 Conflict`:
-    - `DUPLICATE_ASSIGNMENT`: Incident already assigned.
-    - `TECHNICIAN_UNAVAILABLE`: Selected technician is not `AVAILABLE`.
-    - `SKILL_MISMATCH`: Technician lacks incident's required skill.
-    - `CAPACITY_EXCEEDED`: Technician active incidents $\ge$ max capacity.
-    - `INVALID_ASSIGNMENT`: Incident is in an unassignable lifecycle state.
-
-
-
----
-
-## 4. Incident Search, Filtering and Duplicate Detection (Module 2)
-
-### 4.1 Search and Filter Incidents
-
-- **Method & Path:** `GET /api/v1/incidents`
-
-Supported query parameters:
-
-| Parameter | Type | Description |
-|---|---|---|
-| `skip` | Integer | Number of records to skip; default 0 |
-| `limit` | Integer | Maximum results; default 50, maximum 100 |
-| `incidentId` | UUID | Exact incident ID |
-| `incidentCode` | String | Partial, case-insensitive incident-code search |
-| `dateFrom` | ISO-8601 datetime | Include incidents created at or after this time |
-| `dateTo` | ISO-8601 datetime | Include incidents created at or before this time |
-| `status` | IncidentStatus | Filter by lifecycle status |
-| `priority` | Priority | Filter by P1, P2, P3 or P4 |
-| `category` | IncidentCategory | Filter by incident category |
-| `serviceId` | UUID | Filter by affected service |
-| `assignedTechnicianId` | UUID | Filter by assigned technician |
-
-Multiple filters are combined using AND logic.
-
-The current employee-facing endpoint restricts results to the authenticated reporter's incidents.
-
-- **Response 200 OK:** List of matching `IncidentResponse` objects.
-- **Response 400 Bad Request:** Invalid date range or query parameters.
-
-### 4.2 Find Potential Duplicate Incidents
-
-- **Method & Path:** `GET /api/v1/incidents/{incident_id}/duplicates`
-
-The backend compares the incident with other incidents satisfying all of these conditions:
-
-1. Same affected service.
-2. Same incident category.
-3. Created within the previous 24 hours.
-4. Description Jaccard similarity greater than or equal to 0.50.
-
-Description preprocessing includes lowercase normalization, punctuation removal,
-tokenization and common stop-word removal.
-
-- **Response 200 OK:**
-
-```json
-[
-  {
-    "incidentId": "550e8400-e29b-41d4-a716-446655440000",
-    "incidentCode": "INC-1001",
-    "category": "NETWORK",
-    "priority": "P2",
-    "status": "NEW",
-    "createdAt": "2026-11-14T10:00:00Z",
-    "similarityScore": 0.75,
-    "explanation": "Same affected service and category. Description similarity is 0.750, which meets the threshold of 0.50."
-  }
-]
-
-### 4.3 Retrieve Incident
-
-- Method: GET
-- Path: `/api/v1/incidents/{incident_id}`
-
-Returns IncidentDetailsResponse, including associated comments.
-
-### 4.4 Update Incident
-
-- Method: PATCH
-- Path: `/api/v1/incidents/{incident_id}`
-
-Permitted fields:
-- description
-- impact
-- urgency
-
-Priority is recalculated when scoring factors change.
-
-### 4.5 Update Incident Status
-
-- Method: PATCH
-- Path: `/api/v1/incidents/{incident_id}/status`
-
-Request:
-
-{
-  "status": "CLASSIFIED"
-}
-
-For RESOLVED:
-
-{
-  "status": "RESOLVED",
-  "resolutionDetails": "Network configuration corrected."
-}
-
-Every successful transition must pass through IncidentLifecycle.
-
-### 4.6 Add Incident Comment
-
-- Method: POST
-- Path: `/api/v1/incidents/{incident_id}/comments`
-
-Request:
-
-{
-  "content": "Please investigate the network issue."
-}
-
-Success: 201 Created.
-
-### 4.7 Common Error Responses
-
-- 400: Invalid request or validation error.
-- 403: Insufficient incident access permissions.
-- 404: Incident not found.
-- 409: Invalid lifecycle transition or business-rule conflict.
-
-All errors use the shared I-ITSM error response envelope.
-
-### 4.3 Search Validation Rules
-
-The incident search endpoint applies the following validation rules:
-
-1. `skip` must be greater than or equal to zero.
-2. `limit` must be between 1 and 100.
-3. Incident codes are trimmed before searching.
-4. Incident codes containing only whitespace are rejected.
-5. Date filters must use timezone-aware ISO-8601 timestamps.
-6. Date filters are normalized to UTC before database queries.
-7. `dateFrom` must be earlier than or equal to `dateTo`.
-
-Relevant application error codes:
-
-| Error Code | HTTP Status | Description |
-|---|---:|---|
-| `INVALID_PAGINATION` | 400 | Invalid skip or limit supplied to the application service |
-| `INVALID_INCIDENT_CODE` | 400 | Incident code is blank or too long |
-| `TIMEZONE_REQUIRED` | 400 | Date filter does not contain timezone information |
-| `INVALID_DATE_RANGE` | 400 | dateFrom occurs after dateTo |
-
-### 4.4 Duplicate Detection Policy
-
-The duplicate detection policy is centralized in
-`app/domain/incident/duplicate_policy.py`.
-
-Default configuration:
-
-- Lookback window: 24 hours.
-- Jaccard similarity threshold: 0.50.
-- Candidate service and category must match.
-- Similarity results are ordered from highest to lowest.
-- The explanation includes the similarity score and shared-token count.
-
-Duplicate detection only identifies potential matches. It never automatically
-deletes or merges incident records.
+### 4.3 Audit Trail
+- `GET /api/v1/audit` (Admin): Query enterprise-wide audit logs with filters (`incident_id`, `actor_id`, `action`, `event_type`, `date_from`, `date_to`).
+- `GET /api/v1/incidents/{incident_id}/audit`: Returns chronological immutable audit event history for a specific incident.

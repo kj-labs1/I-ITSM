@@ -1,6 +1,7 @@
 # Cross-Module Integration Guide
 
-This guide explains how Members 1, 2, and 4 connect their modules into the shared backend application without restructuring existing code.
+> [!NOTE]
+> **Implementation Status: Complete.** This guide outlines the cross-module boundaries and integration contracts agreed upon across the four modules. All modules (M1 Identity, M2 Incidents, M3 Technicians, M4 SLA/Audit/Notifications) are now fully implemented and integrated in the monorepo application. For the complete reference of active endpoints, see [API Contracts](API_CONTRACTS.md).
 
 ---
 

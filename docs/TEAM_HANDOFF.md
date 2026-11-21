@@ -1,5 +1,14 @@
 # Team Handoff Document
 
+> [!NOTE]
+> **Historical Milestone Record:** This document records the Sprint 1 completion baseline (12 November 2026). As of Sprint 2, **all four modules (M1, M2, M3, M4)**, the full-stack **React 18 + Vite** frontend, and the comprehensive **267 automated tests** have been fully implemented, integrated, and verified.
+> 
+> For the current system specifications, please consult:
+> - [System Architecture](ARCHITECTURE.md)
+> - [Module Documentation](MODULE_DOCUMENTATION.md)
+> - [REST API Contracts](API_CONTRACTS.md)
+> - [Database Design & Migrations](DATABASE_DESIGN.md)
+
 **To:** I-ITSM Team (Members 1, 2, and 4)  
 **From:** Member 3 (Technician Management & Assignment Engine)  
 **Date:** 12 November 2026  

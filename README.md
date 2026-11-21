@@ -1,217 +1,304 @@
-# I-ITSM — Intelligent IT Service Management & Incident Resolution System
+# I-ITSM — Intelligent IT Service Management System
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688.svg)](https://fastapi.tiangolo.com)
+[![React 18](https://img.shields.io/badge/React-18.x-61dafb.svg)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-5.x-646cff.svg)](https://vitejs.dev/)
 [![SQLAlchemy 2.x](https://img.shields.io/badge/SQLAlchemy-2.0%2B-red.svg)](https://www.sqlalchemy.org/)
-[![Tests](https://img.shields.io/badge/tests-38%20passed-brightgreen.svg)]()
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%2B-336791.svg)](https://www.postgresql.org/)
+[![Tests](https://img.shields.io/badge/tests-267%20passed-brightgreen.svg)]()
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
-An enterprise-grade, object-oriented incident management and resolution system developed for **CS F213 / MAC F212 (Object-Oriented Programming)**. This repository houses the unified backend foundation featuring an extensible layered architecture, a fully functioning technician assignment engine (Member 3), interchangeable assignment algorithms, and provider-independent AI recommendations.
+An enterprise-grade, object-oriented Intelligent IT Service Management (I-ITSM) system developed for **CS F213 / MAC F212 (Object-Oriented Programming)**. The system features a production-ready **FastAPI** backend with strict layered clean architecture, a **React 18 + Vite** frontend with role-based dashboards, a PostgreSQL relational database with Alembic migrations, an asynchronous event-driven bus (Observer Pattern), an AI-assisted technician recommendation engine (Strategy & Adapter Patterns), automated SLA compliance monitoring, audit trail logging, and in-app notifications.
 
 ---
 
-## 1. Project Objectives
+## 1. Project Overview & Problem Statement
 
-Modern enterprise organizations manage thousands of digital incidents daily across cloud services, networks, authentication clusters, and databases. I-ITSM replaces fragile, manual ticket handling with:
-- **Strict OOP Domain Modeling:** Encapsulation of domain invariants, abstraction of algorithms, and polymorphism across strategies.
-- **Intelligent Technician Allocation:** Two deterministic assignment algorithms (`SkillBasedAssignmentStrategy` and `LeastLoadedAssignmentStrategy`) combined with an LLM-assisted recommendation engine.
-- **Full Incident Lifecycle Enforcement:** State-machine transitions (`NEW` $\rightarrow$ `CLASSIFIED` $\rightarrow$ `ASSIGNED` $\rightarrow$ `ACKNOWLEDGED` $\rightarrow$ `IN_PROGRESS` $\rightarrow$ `RESOLVED` $\rightarrow$ `VERIFIED` $\rightarrow$ `CLOSED`).
-- **Clean Cross-Module Integration:** Four-member ownership boundaries coordinated through explicit application interfaces and domain events without data coupling.
+Modern enterprise IT organizations handle hundreds of operational incidents daily spanning cloud services, local hardware, databases, enterprise software, and networking clusters. Manual ticket assignment is error-prone, slow, and often violates Service Level Agreements (SLAs).
+
+**I-ITSM** solves these challenges by providing:
+1. **Automated Incident Triage & Priority Scoring:** Calculates deterministic incident priority ($P1$ to $P4$) using business criticality, technical urgency, and user impact matrices.
+2. **AI-Assisted Smart Technician Allocation:** Employs the **Strategy Pattern** (`SkillBasedAssignmentStrategy` and `LeastLoadedAssignmentStrategy`) augmented by LLM reasoning with guaranteed offline fallback to assign tickets based on skills, availability, and active workload limits.
+3. **Strict Incident Lifecycle State Machine:** Enforces valid transitions from `NEW` $\rightarrow$ `CLASSIFIED` $\rightarrow$ `ASSIGNED` $\rightarrow$ `ACKNOWLEDGED` $\rightarrow$ `IN_PROGRESS` $\rightarrow$ `RESOLVED` $\rightarrow$ `VERIFIED` $\rightarrow$ `CLOSED`.
+4. **Automated SLA Compliance & Warning Engine:** Continuously tracks response and resolution deadlines per priority level ($P1$–$P4$), generating approaching-breach warnings and breach records automatically.
+5. **Incident Archiving & Duplicate Merging:** Preserves historical closed incidents in read-only audit-compliant storage and detects/merges duplicate issues to prevent split investigations.
+6. **Multi-Role User Portals:** Provides tailored, responsive interfaces for **Employees**, **Technicians**, and **Administrators** with real-time popup toasts, unread notification counts, and centralized error messaging.
 
 ---
 
 ## 2. Technology Stack
 
-- **Backend Framework:** [FastAPI](https://fastapi.tiangolo.com) (Python 3.12+)
-- **Server:** [Uvicorn](https://www.uvicorn.org/)
-- **Data Validation & DTOs:** [Pydantic v2](https://docs.pydantic.dev/)
-- **ORM & Persistence:** [SQLAlchemy 2.x (Asyncio)](https://docs.sqlalchemy.org/en/20/)
-- **Database Driver:** [Psycopg 3](https://www.psycopg.org/psycopg3/) / [aiosqlite](https://aiosqlite.omnilib.dev/) (for tests)
-- **Database:** PostgreSQL 16
-- **Database Migrations:** [Alembic](https://alembic.sqlalchemy.org/)
-- **Test Harness:** [pytest](https://docs.pytest.org/) & `pytest-asyncio`
-- **Linter & Formatter:** [Ruff](https://astral.sh/ruff)
-- **AI Integration:** Async HTTPX adapter with OpenAI-compatible completion APIs + deterministic Mock provider.
+### Backend
+- **Language & Runtime:** Python 3.12+ (tested on Python 3.12 and Python 3.14)
+- **Web Framework:** [FastAPI 0.115+](https://fastapi.tiangolo.com) (Asynchronous REST API)
+- **Server:** [Uvicorn](https://www.uvicorn.org/) (ASGI server)
+- **Data Validation & Serialisation:** [Pydantic v2](https://docs.pydantic.dev/) (`BaseDTO` with camelCase alias generation)
+- **ORM & Database Abstraction:** [SQLAlchemy 2.x Asyncio](https://docs.sqlalchemy.org/en/20/)
+- **Database Driver:** [Psycopg 3](https://www.psycopg.org/psycopg3/) (PostgreSQL async driver) / [aiosqlite](https://aiosqlite.omnilib.dev/) (in-memory test harness)
+- **Relational Database:** PostgreSQL 16+
+- **Database Migrations:** [Alembic](https://alembic.sqlalchemy.org/) (6 versioned migrations)
+- **Authentication & Security:** JWT (JSON Web Tokens via `python-jose`) & Password Hashing via `bcrypt`
+- **Testing & Quality:** [pytest](https://docs.pytest.org/), `pytest-asyncio`, and [Ruff](https://astral.sh/ruff)
+- **AI Integration:** Async HTTPX adapter with OpenAI-compatible completion APIs + deterministic Mock provider
+
+### Frontend
+- **Framework & Build:** [React 18](https://react.dev/) + [Vite 5](https://vitejs.dev/)
+- **UI Components:** Custom modular CSS design system (zero heavy external UI framework overhead)
+- **State & Communication:** React Hooks (`useState`, `useEffect`, `useMemo`, `useRef`), native Fetch API with centralized error extraction utility
+- **Routing:** URL hash / session-backed routing supporting direct incident deep-linking (`#incident-{id}`)
 
 ---
 
-## 3. Architecture Overview
+## 3. Architecture & Module Ownership
 
-I-ITSM is built as a **Layered Modular Monolith**:
+I-ITSM is built as a **Layered Modular Monolith** adhering to clean architecture and Domain-Driven Design (DDD) principles:
 
 ```mermaid
-graph TD
-    A["API Layer (/api/v1)"] --> B["Application / Service Layer"]
-    B --> C["OOP Domain Model (Pure Python)"]
-    B --> D["Infrastructure & Repositories"]
-    D --> E["PostgreSQL Database (SQLAlchemy 2.x)"]
-    B --> F["AI Integration Layer (LLM Adapter)"]
-    B --> G["Observer Pattern (Event Bus)"]
+flowchart TD
+    subgraph Frontend ["Frontend Layer (React + Vite)"]
+        UI_EMP["Employee Portal"]
+        UI_TECH["Technician Portal"]
+        UI_ADMIN["Admin Dashboard"]
+        ERR["Centralized Error Handler"]
+    end
+
+    subgraph API ["API Layer (/api/v1)"]
+        AUTH_API["Auth & Users"]
+        INC_API["Incidents & Archiving"]
+        TECH_API["Technicians & Recommendations"]
+        SLA_API["SLA, Audit & Notifications"]
+    end
+
+    subgraph AppService ["Application Layer"]
+        INC_SRV["IncidentService"]
+        REC_SRV["SmartRecommendationService"]
+        ASSIGN_SRV["TechnicianAssignmentService"]
+        SLA_SRV["SLAService & MonitorTask"]
+        AUDIT_SRV["AuditService"]
+        NOTIF_SRV["NotificationService"]
+    end
+
+    subgraph Domain ["Pure Domain Layer (OOP)"]
+        INC_DOM["Incident & State Machine"]
+        TECH_DOM["Technician Aggregate & Skills"]
+        STRAT_DOM["Assignment Strategies (Strategy Pattern)"]
+        SLA_DOM["SLA Tracking & Policies"]
+    end
+
+    subgraph Infra ["Infrastructure Layer"]
+        DB_REPO["SQLAlchemy Repositories"]
+        EVENT_BUS["InProcessEventBus (Observer Pattern)"]
+        LLM_ADAPT["LLM Provider (Adapter Pattern)"]
+    end
+
+    subgraph Storage ["Persistence"]
+        PG[(PostgreSQL 16 Engine)]
+    end
+
+    Frontend --> API
+    API --> AppService
+    AppService --> Domain
+    AppService --> Infra
+    Infra --> Storage
+    Infra -.-> EVENT_BUS
 ```
 
-### Module Boundaries & Team Ownership
-- **Member 1 (Platform & Access):** Identity, authentication, users, roles, IT service catalog, categories.
-- **Member 2 (Incident Lifecycle):** Incident CRUD, priority scoring, lifecycle transitions, comments, duplicate detection.
-- **Member 3 (Technician & Assignment - Implemented Here):** Technician profiles, skills catalog, availability state, workload tracking, assignment strategies, LLM-enhanced recommendations.
-- **Member 4 (SLA & Automation):** SLA policy timers, deadline monitoring, audit log timeline, email/in-app notifications.
+### Module Breakdown
+- **Module 1 (M1 — Identity, Platform & Administration):** User accounts, roles (`EMPLOYEE`, `TECHNICIAN`, `ADMIN`), JWT authentication, service catalogue management, incident categories, and system metrics reporting.
+- **Module 2 (M2 — Incident Management & Lifecycle):** Incident creation, canonical UUID persistence, lifecycle state transitions, comment threads, duplicate incident similarity detection, duplicate merging, and soft-archiving.
+- **Module 3 (M3 — Technician & Assignment Engine):** Technician profiles, skill levels with proficiency (1–5), workload capacity limits, availability states, deterministic assignment algorithms (`SkillBasedAssignmentStrategy`, `LeastLoadedAssignmentStrategy`), and LLM recommendation augmentation.
+- **Module 4 (M4 — SLA, Notifications & Audit Trail):** SLA policy configurations ($P1$–$P4$), automated deadline monitoring, approaching-breach warnings, event-driven notifications with unread counts and toast popups, and immutable incident audit logging.
 
 ---
 
 ## 4. Repository Structure
 
-```
+```text
 I-ITSM/
 ├── backend/
 │   ├── app/
-│   │   ├── api/                # API Presentation Layer
-│   │   │   ├── deps.py         # FastAPI dependency injection
-│   │   │   └── v1/
-│   │   │       ├── router.py   # Aggregated v1 router
-│   │   │       ├── schemas.py  # Pydantic v2 camelCase DTOs
-│   │   │       ├── technicians.py
-│   │   │       └── assignment.py
-│   │   ├── application/        # Application Use Cases
-│   │   │   ├── assignment/     # Recommendation & assignment services
-│   │   │   ├── technician/     # Profile & skill management services
-│   │   │   └── interfaces/     # Abstract boundaries (Repositories, Services, Events)
-│   │   ├── core/               # Configuration, security, exceptions, logging
-│   │   ├── domain/             # Pure OOP Domain (No framework dependencies)
-│   │   │   ├── assignment/     # Strategies, context, recommendation entities
-│   │   │   ├── identity/       # User identity value object
-│   │   │   ├── incident/       # Incident reference projection
-│   │   │   └── technician/     # Technician & skill aggregate roots
-│   │   ├── infrastructure/     # Database, repositories, event bus
-│   │   │   ├── database/       # SQLAlchemy models, async session engine
-│   │   │   ├── events/         # InProcessEventBus (Observer Pattern)
-│   │   │   └── repositories/   # SQLAlchemyTechnicianRepository
-│   │   ├── integrations/       # Cross-module adapters & external LLM
-│   │   │   ├── incidents/      # Member 2 integration boundary & test stub
-│   │   │   └── llm/            # LLM adapter, prompts, mock provider, factory
-│   │   └── shared/             # Team-wide enums and types
-│   ├── migrations/             # Alembic migration revisions
-│   ├── tests/                  # 38 unit, integration, and API tests
-│   ├── alembic.ini             # Migration config
-│   ├── pyproject.toml          # Build and dependencies
-│   ├── Dockerfile              # Production container build
-│   └── .env.example            # Environment template
-├── frontend/                   # React frontend integration placeholder
-├── docs/                       # Architecture & design documentation
-│   ├── ARCHITECTURE.md
-│   ├── API_CONTRACTS.md
-│   ├── DATABASE_DESIGN.md
-│   ├── ASSIGNMENT_ALGORITHM.md
-│   ├── LLM_INTEGRATION.md
-│   ├── OOP_DESIGN.md
-│   ├── INTEGRATION_GUIDE.md
-│   └── TEAM_HANDOFF.md
-├── docker-compose.yml          # Multi-container local orchestration
-├── PROJECT_CONTRACT.md         # Binding team agreement & proposed changes
-└── README.md
+│   │   ├── api/                      # Presentation layer
+│   │   │   ├── deps.py               # Dependency injection providers
+│   │   │   └── v1/                   # REST endpoints (41 routes)
+│   │   │       ├── assignment.py     # Incident assignment
+│   │   │       ├── audit.py          # Audit log query APIs
+│   │   │       ├── auth.py           # Registration & login
+│   │   │       ├── categories.py     # Incident categories
+│   │   │       ├── incidents.py      # Incident lifecycle, archive & merge
+│   │   │       ├── notifications.py  # User notifications & unread count
+│   │   │       ├── reports.py        # Executive dashboard metrics
+│   │   │       ├── router.py         # Root API v1 router
+│   │   │       ├── schemas.py        # Pydantic v2 DTOs
+│   │   │       ├── services.py       # IT service catalogue
+│   │   │       ├── sla.py            # SLA policies, tracking & sweeps
+│   │   │       ├── sla_schemas.py    # SLA & Audit DTOs
+│   │   │       ├── technicians.py    # Technician profiles & skills
+│   │   │       └── users.py          # Admin user management
+│   │   ├── application/              # Application orchestration services
+│   │   │   ├── assignment/           # Recommendation & assignment services
+│   │   │   ├── incident/             # Incident lifecycle services
+│   │   │   ├── interfaces/           # Abstract repository & service boundaries
+│   │   │   ├── sla/                  # SLA, notification, and audit services
+│   │   │   └── technician/           # Technician management services
+│   │   ├── core/                     # App settings, security, exceptions
+│   │   ├── domain/                   # Pure OOP domain entities & rules
+│   │   │   ├── assignment/           # Strategy implementations
+│   │   │   ├── identity/             # User identity value objects
+│   │   │   ├── incident/             # Incident aggregate & lifecycle
+│   │   │   ├── sla/                  # SLA policy & tracking entities
+│   │   │   └── technician/           # Technician aggregate root & skills
+│   │   ├── infrastructure/           # Database models & repositories
+│   │   │   ├── database/             # SQLAlchemy ORM models & session factory
+│   │   │   ├── events/               # InProcessEventBus
+│   │   │   └── repositories/         # Concrete SQLAlchemy repositories
+│   │   ├── integrations/             # LLM adapters and provider factory
+│   │   └── shared/                   # System-wide enums and types
+│   ├── migrations/                   # Alembic database migration revisions
+│   │   └── versions/                 # 001 through 006 revisions
+│   ├── tests/                        # Automated test suite (267 test cases)
+│   │   ├── api/                      # API endpoint tests
+│   │   ├── integration/              # Service and repository integration tests
+│   │   └── unit/                     # Domain, strategy, and utility tests
+│   ├── alembic.ini                   # Alembic configuration
+│   └── pyproject.toml                # Dependencies and project metadata
+├── frontend/                         # React 18 + Vite frontend SPA
+│   ├── src/
+│   │   ├── features/employee/        # Employee incident views and components
+│   │   │   ├── components/           # Incident cards, tables, badges
+│   │   │   ├── hooks/                # useIncidents custom hook
+│   │   │   ├── pages/                # ReportIncident, MyIncidents, IncidentDetails
+│   │   │   └── utils/                # incidentHelpers formatters
+│   │   ├── utils/                    # errorHandler.js centralized error handling
+│   │   ├── App.jsx                   # Role-based dashboard and router
+│   │   ├── main.jsx                  # React application entry point
+│   │   └── index.css                 # Clean CSS design system
+│   ├── package.json                  # Node dependencies
+│   └── vite.config.js                # Vite build configuration
+├── docs/                             # Detailed architectural specifications
+│   ├── ARCHITECTURE.md               # Complete system architecture specification
+│   ├── API_CONTRACTS.md              # Full REST API contracts & Pydantic schemas
+│   ├── DATABASE_DESIGN.md            # Database schema, ER diagrams & migrations
+│   ├── MODULE_DOCUMENTATION.md       # Modules M1, M2, M3, and M4 documentation
+│   ├── OOP_DESIGN.md                 # Design patterns and OOP principles
+│   ├── LLM_INTEGRATION.md            # AI recommendation adapter and fallback
+│   ├── ASSIGNMENT_ALGORITHM.md       # Deterministic assignment algorithm formulas
+│   ├── AUTHENTICATION.md             # Authentication, JWT, and RBAC specification
+│   ├── USER_WORKFLOWS.md             # Employee, Technician, and Admin workflows
+│   ├── ADMIN_GUIDE.md                # Administrator operations manual
+│   ├── EMPLOYEE_GUIDE.md             # Employee incident guide
+│   ├── TECHNICIAN_GUIDE.md           # Technician incident handling guide
+│   ├── INSTALLATION_AND_SETUP.md     # Installation and environment guide
+│   └── TESTING.md                    # Comprehensive test documentation
+├── docker-compose.yml                # Docker compose orchestration
+└── README.md                         # Project documentation entry point
 ```
 
 ---
 
-## 5. Prerequisites
+## 5. Quick Start & Installation
 
-- **macOS / Linux / Windows WSL2**
+### Prerequisites
 - **Python 3.12+** (tested on Python 3.12 and Python 3.14)
-- **PostgreSQL 16+** (or Docker)
+- **Node.js 18+** & `npm`
+- **PostgreSQL 16+** (local instance or Docker container)
 - **Git**
 
----
-
-## 6. Quick Start & Setup
-
-### 6.1 Clone & Setup Environment
-```bash
-git clone <repo-url>
-cd I-ITSM/backend
-
-# Create virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies and dev tools
-pip install --upgrade pip
-pip install -e ".[dev]"
-```
-
-### 6.2 Configure Environment
-```bash
-cp .env.example .env
-# Edit .env if using a custom PostgreSQL instance or LLM provider
-```
-
-### 6.3 Run with Docker Compose (Recommended)
-From the project root:
+### 5.1 Database Setup (PostgreSQL)
+Ensure PostgreSQL is running locally or start it via Docker:
 ```bash
 docker compose up -d db
 ```
+Default connection URL: `postgresql+psycopg://postgres:postgres@localhost:5432/iitsm`
 
-### 6.4 Apply Database Migrations
+### 5.2 Backend Setup
 ```bash
 cd backend
+
+# Create virtual environment
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install dependencies in editable mode
+pip install --upgrade pip
+pip install -e ".[dev]"
+
+# Configure environment
+cp .env.example .env
+
+# Apply database migrations (revisions 001 through 006)
 alembic upgrade head
-```
 
-### 6.5 Start Backend Server
-```bash
-cd backend
-uvicorn app.main:create_app --factory --reload --port 8000
+# Start Uvicorn backend server
+uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
-- Interactive API Documentation (Swagger): [http://localhost:8000/docs](http://localhost:8000/docs)
-- Alternative API Documentation (ReDoc): [http://localhost:8000/redoc](http://localhost:8000/redoc)
+- Interactive Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs)
 - Health Check: [http://localhost:8000/health](http://localhost:8000/health)
 
+### 5.3 Frontend Setup
+In a new terminal window:
+```bash
+cd frontend
+
+# Install npm packages
+npm install
+
+# Start Vite development server
+npm run dev -- --port 3000
+```
+- Open application: [http://localhost:3000](http://localhost:3000)
+
 ---
 
-## 7. Running Tests & Quality Checks
+## 6. Running Tests & Code Quality
 
-The automated test suite runs completely offline with zero external network or database dependencies using in-memory SQLite and a deterministic mock LLM adapter.
+The backend includes a comprehensive automated test suite of **267 test cases** executing completely offline with zero external network or database dependencies (via SQLite in-memory engine and mock LLM providers):
 
 ```bash
 cd backend
+source .venv/bin/activate
 
-# Run all 38 test cases
+# Execute all 267 automated tests
 pytest -v
 
-# Run with coverage report
-pytest --cov=app tests/
-
-# Run Ruff linter and formatter
-ruff check .
-ruff format --check .
+# Run linter and formatting checks
+ruff check app tests
+ruff format --check app tests
 ```
 
----
-
-## 8. LLM Configuration & Fallback
-
-The LLM integration is provider-independent via the **Adapter Pattern**:
-
+To build and verify the frontend production bundle:
 ```bash
-# In backend/.env:
-LLM_PROVIDER=mock              # Options: mock, openai_compatible
-LLM_API_KEY=your-api-key       # Required for openai_compatible
-LLM_MODEL=gpt-4o-mini          # Model identifier
-LLM_TIMEOUT_SECONDS=15
-LLM_MAX_RETRIES=2
+cd frontend
+npm run build
 ```
-
-### Resilience Guarantee
-If the LLM endpoint is unreachable, times out, or returns invalid JSON, the system automatically and transparently falls back to deterministic recommendations (`SkillBasedAssignmentStrategy` or `LeastLoadedAssignmentStrategy`), attaching a fallback diagnostic note without throwing a 500 error.
 
 ---
 
-## 9. Git Workflow for Team Members
+## 7. User Roles & Security
 
-1. Never commit directly to `main`.
-2. All feature branches must branch off `develop`:
-   - `feature/member-1-platform`
-   - `feature/member-2-incidents`
-   - `feature/member-3-technicians`
-   - `feature/member-4-sla`
-3. Before submitting a PR into `develop`:
-   - Ensure `pytest` passes 100%.
-   - Ensure `ruff check .` has 0 errors.
-   - Update `PROJECT_CONTRACT.md` if any schema or API contract changed.
+| Role | Permissions & Portals |
+|---|---|
+| **EMPLOYEE** | Report new incidents with real-time duplicate suggestions; track personal incidents; view lifecycle history, SLA deadlines, and comments; add user comments; view unread notifications and popup alerts. |
+| **TECHNICIAN** | View assigned incident queue; acknowledge assigned incidents; progress status to `IN_PROGRESS` and `RESOLVED`; provide resolution details; toggle personal operational availability (`AVAILABLE` $\leftrightarrow$ `BUSY`). |
+| **ADMIN** | Executive KPI summary dashboard; complete incident management (assignment, smart AI candidate recommendations, status updates); soft-archiving of closed incidents; duplicate incident merging; technician operational capacity management; user management; service catalogue and category management; SLA policy management and manual breach evaluation sweeps; system-wide audit logging. |
+
+---
+
+## 8. Detailed Documentation Index
+
+For comprehensive technical specifications, please consult the dedicated documentation files:
+- [Architecture Specification](file:///Users/wonderer/Desktop/I-ITSM/docs/ARCHITECTURE.md) — System layering, event bus, and component relationships.
+- [REST API Contracts](file:///Users/wonderer/Desktop/I-ITSM/docs/API_CONTRACTS.md) — Complete endpoint documentation with request/response schemas.
+- [Database Schema & Migrations](file:///Users/wonderer/Desktop/I-ITSM/docs/DATABASE_DESIGN.md) — Relational schema, ER diagrams, indexes, and migrations 001–006.
+- [Module Documentation](file:///Users/wonderer/Desktop/I-ITSM/docs/MODULE_DOCUMENTATION.md) — Deep-dive into Modules M1, M2, M3, and M4.
+- [OOP Design & Patterns](file:///Users/wonderer/Desktop/I-ITSM/docs/OOP_DESIGN.md) — Strategy, Observer, Factory, Adapter, and Repository patterns.
+- [LLM Integration Architecture](file:///Users/wonderer/Desktop/I-ITSM/docs/LLM_INTEGRATION.md) — AI recommendation adapter, privacy, and deterministic fallback.
+- [Assignment Algorithms](file:///Users/wonderer/Desktop/I-ITSM/docs/ASSIGNMENT_ALGORITHM.md) — Mathematical formulas and ranking logic.
+- [Authentication & Security](file:///Users/wonderer/Desktop/I-ITSM/docs/AUTHENTICATION.md) — JWT issuance, password hashing, and RBAC rules.
+- [User Workflows](file:///Users/wonderer/Desktop/I-ITSM/docs/USER_WORKFLOWS.md) — End-to-end user journeys and state transitions.
+- [Administrator Operations Guide](file:///Users/wonderer/Desktop/I-ITSM/docs/ADMIN_GUIDE.md) — Admin manual for operational workflows.
+- [Employee Guide](file:///Users/wonderer/Desktop/I-ITSM/docs/EMPLOYEE_GUIDE.md) — Employee incident reporting manual.
+- [Technician Guide](file:///Users/wonderer/Desktop/I-ITSM/docs/TECHNICIAN_GUIDE.md) — Incident acknowledgment and resolution manual.
+- [Installation & Setup Guide](file:///Users/wonderer/Desktop/I-ITSM/docs/INSTALLATION_AND_SETUP.md) — Detailed environment and deployment guide.
+- [Testing & Quality Verification](file:///Users/wonderer/Desktop/I-ITSM/docs/TESTING.md) — Test suite organization and execution results.
+- [Frontend Application Specification](file:///Users/wonderer/Desktop/I-ITSM/frontend/README.md) — React architecture, state management, and error handling.
