@@ -33,6 +33,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    volumes:
+      - ./backend:/app
     restart: unless-stopped
     ports:
       - "8000:8000"
