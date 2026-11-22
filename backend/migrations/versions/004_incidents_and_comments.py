@@ -1,4 +1,3 @@
-
 """Create incident and incident_comments tables.
 
 Revision ID: 002_incident_schema
@@ -10,7 +9,6 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.types import Uuid
-
 
 # Revision identifiers.
 revision: str = "004_incidents_and_comments"

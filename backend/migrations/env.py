@@ -11,9 +11,10 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+import app.infrastructure.database.incident_models  # noqa: F401
+
 # Import all models to ensure metadata registration
 import app.infrastructure.database.models  # noqa: F401
-import app.infrastructure.database.incident_models  # noqa: F401
 import app.infrastructure.database.sla_models  # noqa: F401
 from app.core.config import get_settings
 from app.infrastructure.database.base import Base
