@@ -175,22 +175,17 @@ I-ITSM/
 │   │   └── index.css                 # Clean CSS design system
 │   ├── package.json                  # Node dependencies
 │   └── vite.config.js                # Vite build configuration
-├── docs/                             # Detailed architectural specifications
-│   ├── ARCHITECTURE.md               # Complete system architecture specification
-│   ├── API_CONTRACTS.md              # Full REST API contracts & Pydantic schemas
-│   ├── DATABASE_DESIGN.md            # Database schema, ER diagrams & migrations
+├── docs/                             # Clean, authoritative documentation suite
+│   ├── INSTALLATION_GUIDE.md         # Fresh-clone, Docker, native host & troubleshooting
+│   ├── USER_GUIDE.md                 # Multi-role operations, workflows & profile modal
+│   ├── ARCHITECTURE.md               # Clean architecture, layering & event bus
+│   ├── API_DOCUMENTATION.md          # REST contracts, schemas, auth & error envelope
+│   ├── DATABASE_DESIGN.md            # ER diagram, 8 tables & Alembic migrations
+│   ├── OOP_DESIGN.md                 # 6 OOP pillars, 7 design patterns, SOLID compliance
+│   ├── ASSIGNMENT_ALGORITHMS.md      # Skill-based, least-loaded & AI recommendation
 │   ├── MODULE_DOCUMENTATION.md       # Modules M1, M2, M3, and M4 documentation
-│   ├── OOP_DESIGN.md                 # Design patterns and OOP principles
-│   ├── LLM_INTEGRATION.md            # AI recommendation adapter and fallback
-│   ├── ASSIGNMENT_ALGORITHM.md       # Deterministic assignment algorithm formulas
-│   ├── AUTHENTICATION.md             # Authentication, JWT, and RBAC specification
-│   ├── USER_WORKFLOWS.md             # Employee, Technician, and Admin workflows
-│   ├── ADMIN_GUIDE.md                # Administrator operations manual
-│   ├── EMPLOYEE_GUIDE.md             # Employee incident guide
-│   ├── TECHNICIAN_GUIDE.md           # Technician incident handling guide
-│   ├── INSTALLATION_AND_SETUP.md     # Installation and environment guide
-│   └── TESTING.md                    # Comprehensive test documentation
-├── docker-compose.yml                # Docker compose orchestration
+│   └── TESTING.md                    # 273 automated tests, test harness & CI matrix
+├── docker-compose.yml                # Docker compose full-stack orchestration
 └── README.md                         # Project documentation entry point
 ```
 
@@ -199,7 +194,7 @@ I-ITSM/
 ## 5. Quick Start & Installation
 
 > [!TIP]
-> **Complete Beginner & Multi-OS Guide:** For a comprehensive, step-by-step walkthrough covering macOS, Windows (PowerShell), and Linux, seed demo credentials, troubleshooting, and full user-creation manuals for all roles, see **[Complete Installation & User Guide](file:///Users/wonderer/Desktop/I-ITSM/docs/INSTALLATION_AND_USER_GUIDE.md)**.
+> **Complete Beginner & Multi-OS Guide:** For a comprehensive, step-by-step walkthrough covering macOS, Windows (PowerShell), and Linux, seed demo credentials, troubleshooting, and full user-creation manuals for all roles, see **[Installation & Operations Guide](file:///Users/wonderer/Desktop/I-ITSM/docs/INSTALLATION_GUIDE.md)**.
 
 ### Option A: 1-Minute Docker Compose (Recommended)
 
@@ -328,19 +323,25 @@ npm run build
 ## 8. Detailed Documentation Index
 
 For comprehensive technical specifications, please consult the dedicated documentation files:
-- [Complete Installation & User Guide](file:///Users/wonderer/Desktop/I-ITSM/docs/INSTALLATION_AND_USER_GUIDE.md) — Multi-OS fresh-clone guide, Docker, seeding, and all role workflows.
-- [Architecture Specification](file:///Users/wonderer/Desktop/I-ITSM/docs/ARCHITECTURE.md) — System layering, event bus, and component relationships.
-- [REST API Contracts](file:///Users/wonderer/Desktop/I-ITSM/docs/API_CONTRACTS.md) — Complete endpoint documentation with request/response schemas.
-- [Database Schema & Migrations](file:///Users/wonderer/Desktop/I-ITSM/docs/DATABASE_DESIGN.md) — Relational schema, ER diagrams, indexes, and migrations 001–006.
-- [Module Documentation](file:///Users/wonderer/Desktop/I-ITSM/docs/MODULE_DOCUMENTATION.md) — Deep-dive into Modules M1, M2, M3, and M4.
-- [OOP Design & Patterns](file:///Users/wonderer/Desktop/I-ITSM/docs/OOP_DESIGN.md) — Strategy, Observer, Factory, Adapter, and Repository patterns.
-- [LLM Integration Architecture](file:///Users/wonderer/Desktop/I-ITSM/docs/LLM_INTEGRATION.md) — AI recommendation adapter, privacy, and deterministic fallback.
-- [Assignment Algorithms](file:///Users/wonderer/Desktop/I-ITSM/docs/ASSIGNMENT_ALGORITHM.md) — Mathematical formulas and ranking logic.
-- [Authentication & Security](file:///Users/wonderer/Desktop/I-ITSM/docs/AUTHENTICATION.md) — JWT issuance, password hashing, and RBAC rules.
-- [User Workflows](file:///Users/wonderer/Desktop/I-ITSM/docs/USER_WORKFLOWS.md) — End-to-end user journeys and state transitions.
-- [Administrator Operations Guide](file:///Users/wonderer/Desktop/I-ITSM/docs/ADMIN_GUIDE.md) — Admin manual for operational workflows.
-- [Employee Guide](file:///Users/wonderer/Desktop/I-ITSM/docs/EMPLOYEE_GUIDE.md) — Employee incident reporting manual.
-- [Technician Guide](file:///Users/wonderer/Desktop/I-ITSM/docs/TECHNICIAN_GUIDE.md) — Incident acknowledgment and resolution manual.
-- [Installation & Setup Guide](file:///Users/wonderer/Desktop/I-ITSM/docs/INSTALLATION_AND_SETUP.md) — Detailed environment and deployment guide.
-- [Testing & Quality Verification](file:///Users/wonderer/Desktop/I-ITSM/docs/TESTING.md) — Test suite organization and execution results.
-- [Frontend Application Specification](file:///Users/wonderer/Desktop/I-ITSM/frontend/README.md) — React architecture, state management, and error handling.
+- [Installation & Operations Guide](file:///Users/wonderer/Desktop/I-ITSM/docs/INSTALLATION_GUIDE.md) — Multi-OS fresh-clone guide, Docker Compose, seeding, and troubleshooting.
+- [User & Operations Guide](file:///Users/wonderer/Desktop/I-ITSM/docs/USER_GUIDE.md) — Role-based operations manual (Employee, Technician, Admin), role promotion & profile setup modal.
+- [Architecture Specification](file:///Users/wonderer/Desktop/I-ITSM/docs/ARCHITECTURE.md) — System layering, modular monolith boundaries, and event-driven bus.
+- [REST API Documentation](file:///Users/wonderer/Desktop/I-ITSM/docs/API_DOCUMENTATION.md) — Complete endpoint reference, schemas, JWT auth, and uniform error envelope.
+- [Database Design & Migrations](file:///Users/wonderer/Desktop/I-ITSM/docs/DATABASE_DESIGN.md) — Relational schema, ER diagram, table constraints, and Alembic migrations 001–006.
+- [OOP Design & Patterns](file:///Users/wonderer/Desktop/I-ITSM/docs/OOP_DESIGN.md) — 6 OOP pillars, 7 design patterns, and SOLID principles.
+- [Assignment Algorithms & AI](file:///Users/wonderer/Desktop/I-ITSM/docs/ASSIGNMENT_ALGORITHMS.md) — Skill-Based, Least-Loaded formulas, AI adapter, privacy guarantee & fallback.
+- [Module Documentation](file:///Users/wonderer/Desktop/I-ITSM/docs/MODULE_DOCUMENTATION.md) — Deep-dive into Modules M1, M2, M3, and M4 responsibilities.
+- [Testing & Quality Verification](file:///Users/wonderer/Desktop/I-ITSM/docs/TESTING.md) — Automated test suite (273 tests), offline harness, and CI matrix.
+- [Frontend Application Specification](file:///Users/wonderer/Desktop/I-ITSM/frontend/README.md) — React 18 architecture, state management, and error handling.
+- [Final Academic Project Report](file:///Users/wonderer/Desktop/I-ITSM/I-ITSM_Final_Project_Report.pdf) — Comprehensive 71-page academic final report in PDF format.
+
+---
+
+## 9. Engineering Team & Module Contributors
+
+| Member | Name | Module Responsibility | Key Deliverables |
+|---|---|---|---|
+| **M1** | **Anay Goenka** | Identity & Access Management | JWT auth, bcrypt hashing, user management, service catalogue, categories, KPI summary |
+| **M2** | **Anshul Naik** | Incident Management | Incident aggregate, lifecycle state machine, priority scoring, duplicate detection & merging, archiving |
+| **M3** | **Krish Jain** | Technician Management & Assignment | Technician aggregate, skills portfolio, capacity limits, skill-based & least-loaded strategies, AI recommendations |
+| **M4** | **Anirudh Yendalur** | SLA, Audit & Notifications | SLA policies & tracking, 60s background daemon, approaching-breach warnings, unread alerts, audit ledger |

@@ -1,6 +1,6 @@
 # I-ITSM — Frontend Application Documentation
 
-The I-ITSM Frontend is a modern Single Page Application (SPA) built using **React 18** and bundled with **Vite 5**. It provides role-based interfaces for **Employees**, **Technicians**, and **Administrators** to interact with the I-ITSM backend via asynchronous REST API calls.
+The I-ITSM Frontend is a Single Page Application (SPA) built using **React 18** and bundled with **Vite 5**. It provides role-based portals for **Employees**, **Technicians**, and **Administrators** to interact with the I-ITSM backend via asynchronous REST API calls.
 
 ---
 
@@ -8,10 +8,11 @@ The I-ITSM Frontend is a modern Single Page Application (SPA) built using **Reac
 
 - **Framework:** React 18
 - **Build Tool:** Vite 5
-- **Design System:** Custom CSS design system located in `src/index.css` (fast, lightweight, zero heavy UI framework overhead)
+- **Design System:** Custom CSS design system located in `src/index.css` (fast, lightweight, zero heavy external UI framework overhead)
 - **State Management:** Native React Hooks (`useState`, `useEffect`, `useMemo`, `useRef`)
 - **API Communication:** Browser Native `fetch` with centralized JWT Authorization injection and error formatting
 - **Routing:** Session-backed and hash-based navigation (`#incident-{id}` deep-linking, automatic history state synchronization)
+- **Environment Binding:** Configured via `import.meta.env.VITE_API_URL` with automatic development fallback to `http://127.0.0.1:8000/api/v1`
 
 ---
 
@@ -58,19 +59,13 @@ frontend/
 ## 3. Implemented Role Portals & Features
 
 ### 3.1 Employee Portal
-- **Dashboard:** At-a-glance summary cards showing Total, Active, In-Progress, Resolved, and Critical ($P1/P2$) personal incidents.
+- **Dashboard:** Summary metrics showing personal incident counts (Total, Active, In-Progress, Resolved, Critical $P1/P2$).
 - **Report Incident (`ReportIncident.jsx`):**
   - Incident category and service selection.
   - Interactive urgency and impact selectors ($1$ to $5$) calculating real-time priority.
-  - **Live Duplicate Detection:** Automatically queries `/api/v1/incidents/search` as the user types descriptions; displays potential duplicate matches with similarity scores to prevent redundant submissions.
-- **My Incidents (`MyIncidents.jsx`):**
-  - Searchable, filterable list by status, category, and priority.
-  - Quick status indicators and creation timestamps.
-- **Incident Details (`IncidentDetails.jsx`):**
-  - Real-time status lifecycle timeline.
-  - SLA tracking panel showing response/resolution deadlines and breach indicators.
-  - Immutable audit trail history and technician assignment summary.
-  - Collaborative comment thread allowing employee additions.
+  - **Live Duplicate Detection:** Automatically queries `/api/v1/incidents/search` as descriptions are typed; displays potential duplicate matches with similarity scores.
+- **My Incidents (`MyIncidents.jsx`):** Searchable, filterable list by status, category, and priority.
+- **Incident Details (`IncidentDetails.jsx`):** Real-time lifecycle timeline, SLA tracking countdowns, and collaborative comment thread.
 
 ### 3.2 Technician Portal
 - **Assigned Queue:** Filtered view displaying incidents assigned to the logged-in technician's user UUID.
@@ -81,18 +76,13 @@ frontend/
 
 ### 3.3 Administrator Portal
 - **Executive Metrics Dashboard:** Overview of total incidents, SLA compliance rates, breached incidents, active technician count, and category distributions.
-- **Incident Management:**
-  - Full visibility across all enterprise incidents.
-  - **Smart Candidate Recommendations:** Triggers AI-assisted candidate evaluation (`SKILL_BASED` or `LEAST_LOADED`) with ranked explanations, skill matching, and single-click assignment.
-  - **Manual Assignment:** Fallback dropdown populated with technician names, experience, availability, and active workload counts.
-  - **Incident Archiving:** Soft-archives closed incidents to read-only compliance storage with audit logging.
-  - **Duplicate Incident Merging:** Merges secondary duplicate incidents into primary incidents, closing secondary tickets automatically and recording merge audit logs.
+- **Incident Management:** Full visibility across enterprise incidents, smart candidate recommendations, manual assignment, soft-archiving, and duplicate merging.
 - **Technician Roster & Workload (`TechniciansPage`):**
   - Displays technician **Username**, **Full Name**, **Skills** (as proficiency badges `Skill (X/5)`), **Availability**, **Experience**, and **Workload / Max Capacity**.
   - **Zero User-Facing UUIDs:** Internal database IDs are kept under the hood and never rendered in table cells or headers.
-  - **View & Edit Modal:** Modal interface allowing administrators to edit operational parameters (experience years, max incident capacity) and manage skills (add new skills with 1–5 proficiency, delete existing skills).
+  - **Promoted User Profile Configuration Modal:** Displays newly promoted technicians with **Profile Not Configured** status and allows administrators to open an **Add Technician Profile** modal to configure experience, capacity, availability, and skills.
 - **Service Catalogue & Incident Categories:** Dynamic forms to create, edit, activate, or deactivate services and category mappings.
-- **SLA Monitoring (`SLAPage`):** Real-time summary grid showing total tracked, compliant, breached, approaching-breach tickets, and priority breakdown ($P1$–$P4$).
+- **SLA Monitoring (`SLAPage`):** Real-time summary grid showing total tracked, compliant, breached, and approaching-breach tickets.
 - **Audit Logs (`AuditPage`):** Filterable chronological audit log table with actor, action, timestamp, and metadata search.
 
 ---
@@ -102,19 +92,17 @@ frontend/
 - **Polling Engine:** Background polling every 15 seconds querying `/api/v1/notifications/unread/count` and `/api/v1/notifications?limit=20`.
 - **Unread Badge & Dropdown:** Bell icon with counter badge displaying recent notifications with event icons (🚨 SLA Breach, ⚠️ SLA Warning, 🛠️ Assignment, 📝 Created, 🔄 Status Changed, 💬 Comment).
 - **Popup Toast Alerts:** New unread notifications trigger temporary popup toast alerts in the bottom-right corner that automatically dismiss after 6 seconds.
-- **Deduplication:** Uses reference ID caches and content deduplication to prevent duplicate toast alerts.
 - **Single-Click Navigation:** Clicking any notification marks it as read and deep-links directly to the relevant incident.
 
 ---
 
 ## 5. Centralized Error Handling (`src/utils/errorHandler.js`)
 
-The frontend implements a robust, centralized error extraction utility:
-- **FastAPI / Domain Envelope Extraction:** Extracts meaningful error messages from `data.message`, `data.detail`, and `data.error` instead of displaying generic messages like `Request failed (409)`.
-- **Validation Array Parsing:** Formats Pydantic HTTP 422 validation error arrays (e.g., `[{loc: ['body', 'urgency'], msg: 'Input should be greater than 0'}]`) into clean strings (`Urgency: Input should be greater than 0`) instead of `[object Object]`.
-- **Status Code Mapping:** Provides fallback messages for HTTP 400, 401, 403, 404, 409, 422, 429, 500, 502, 503, and 504.
+The frontend implements a centralized error extraction utility:
+- **FastAPI / Domain Envelope Extraction:** Extracts meaningful error messages from `data.message`, `data.detail`, and `data.error`.
+- **Validation Array Parsing:** Formats Pydantic HTTP 422 validation error arrays into clean strings instead of `[object Object]`.
+- **Status Code Mapping:** Provides human-readable fallback messages for HTTP 400, 401, 403, 404, 409, 422, 429, 500, 502, 503, and 504.
 - **Network Resilience:** Catches fetch and network errors (`Network error: Unable to connect to server`).
-- **Data Protection:** Sanitizes any leaked internal SQL queries or server tracebacks to prevent exposing technical details to users.
 
 ---
 
@@ -123,9 +111,9 @@ The frontend implements a robust, centralized error extraction utility:
 ### Development Server
 ```bash
 npm install
-npm run dev -- --port 3000
+npm run dev
 ```
-Application accessible at [http://localhost:3000](http://localhost:3000).
+Application accessible at [http://localhost:5173](http://localhost:5173).
 
 ### Production Build
 ```bash

@@ -1,7 +1,14 @@
 # I-ITSM Shared Project Contract
 
 > [!NOTE]
-> **Ratification & Implementation Status: APPROVED & FULLY IMPLEMENTED.** The Python 3.12+ / FastAPI / SQLAlchemy 2.x / React 18 + Vite architecture specified in this contract has been fully implemented, integrated, and verified with 267 passing automated tests and zero linter warnings.
+> **Ratification & Implementation Status: APPROVED & FULLY IMPLEMENTED.** The Python 3.12+ / FastAPI / SQLAlchemy 2.x / React 18 + Vite architecture specified in this contract has been fully implemented, integrated, and verified with **273 passing automated tests** and zero linter warnings.
+>
+> For current operational documentation and setup instructions, please consult:
+> - [Installation & Operations Guide](docs/INSTALLATION_GUIDE.md)
+> - [Architecture Specification](docs/ARCHITECTURE.md)
+> - [REST API Documentation](docs/API_DOCUMENTATION.md)
+> - [Database Design & Schema](docs/DATABASE_DESIGN.md)
+> - [Testing & Quality Assurance](docs/TESTING.md)
 
 **Project Title:** Intelligent IT Service Management & Incident Resolution System  
 **Course:** CS F213 / MAC F212 — Object-Oriented Programming (Semester I, 2026–2027)  

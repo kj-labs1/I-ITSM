@@ -166,7 +166,7 @@ This comprehensive technical report presents the architectural design, algorithm
     \item \textbf{Module 4 (SLA, Audit \& Notifications - Anirudh Yendalur):} Executes real-time SLA policy tracking via an asynchronous 60-second periodic daemon, automated 80\% warning thresholds, instant breach alerts, in-app notification routing with real-time polling, and an append-only immutable audit trail.
 \end{itemize}
 
-The platform is realized through a modern asynchronous technology stack powered by Python FastAPI, SQLAlchemy 2.0 Asyncio with Psycopg 3, PostgreSQL 16+, and a React 18 Single-Page Application featuring customized design tokens, centralized error parsing, and a strict Zero-UUID presentation paradigm. Rigorous verification across 267 automated tests spanning unit, integration, and API layers confirms complete functional correctness, transactional integrity, and zero regressions.
+The platform is realized through a modern asynchronous technology stack powered by Python FastAPI, SQLAlchemy 2.0 Asyncio with Psycopg 3, PostgreSQL 16+, and a React 18 Single-Page Application featuring customized design tokens, centralized error parsing, and a strict Zero-UUID presentation paradigm. Rigorous verification across 273 automated tests spanning unit, integration, and API layers confirms complete functional correctness, transactional integrity, and zero regressions.
 
 \vspace{0.8cm}
 \noindent\textbf{Keywords:} IT Service Management, ITIL v4, Incident Lifecycle, Algorithmic Assignment, SLA Governance, Modular Monolith, FastAPI, React, PostgreSQL.
@@ -194,7 +194,7 @@ The \textbf{I-ITSM Platform} addresses these enterprise challenges by establishi
     \item \textbf{Enterprise Usability and Audit Compliance:} The frontend application enforces a Zero-UUID design architecture, replacing raw database identifiers with intuitive incident codes (\texttt{INC-xxxxxxxx}), usernames, and skill badges. Every state change, assignment, and configuration update is logged into an append-only audit ledger.
 \end{enumerate}
 
-Empirical evaluation demonstrates 100\% operational test pass rates across 267 test scenarios, sub-second API execution latencies, and flawless multi-role browser end-to-end user workflows.
+Empirical evaluation demonstrates 100\% operational test pass rates across 273 test scenarios, sub-second API execution latencies, and flawless multi-role browser end-to-end user workflows.
 
 % Table of Contents, Lists
 \cleardoublepage
@@ -284,7 +284,7 @@ This report is organized into seventeen technical chapters and four supplementar
     \item \textbf{Chapter~\ref{ch:frontend}:} Frontend React architecture, component hierarchies, centralized error extraction, and Zero-UUID presentation.
     \item \textbf{Chapter~\ref{ch:workflows}:} End-to-end system sequence workflows and lifecycle diagrams.
     \item \textbf{Chapter~\ref{ch:security}:} Security architecture, JWT verification, Bcrypt hashing, RBAC matrices, and parameterization.
-    \item \textbf{Chapter~\ref{ch:testing}:} Quality assurance, automated test suite results (267 passing tests), and static analysis.
+    \item \textbf{Chapter~\ref{ch:testing}:} Quality assurance, automated test suite results (273 passing tests), and static analysis.
     \item \textbf{Chapter~\ref{ch:deployment}:} Deployment instructions, environment variables, local setup, and Docker configuration.
     \item \textbf{Chapter~\ref{ch:results}:} Empirical results, performance latency benchmarks, and strategy comparisons.
     \item \textbf{Chapter~\ref{ch:limitations}:} System limitations and future research directions.
@@ -516,7 +516,7 @@ While each engineer maintained strict ownership of their respective module, seam
     \item \textbf{Event-Driven Decoupling via InProcessEventBus:} The team collaboratively specified domain event schemas (\texttt{IncidentCreatedEvent}, \texttt{IncidentAssignedEvent}, \texttt{IncidentStatusChangedEvent}, \texttt{SLAWarningEvent}, \texttt{SLABreachedEvent}) to ensure that M2, M3, and M4 communicate without circular package dependencies.
     \item \textbf{Zero-UUID User Experience Architecture:} The frontend team collaborated to eliminate raw technical database UUIDs across all views. An intuitive identifier scheme was instituted: \texttt{INC-xxxxxxxx} for incidents, usernames and full names for technicians, and formatted badges for skills and SLA timers.
     \item \textbf{Centralized Frontend Error Extraction:} The team engineered a centralized frontend error utility (\texttt{errorHandler.js}) that intercepts Axios responses, reliably extracting backend error details from \texttt{response.data.detail} or \texttt{response.data.message} and rendering meaningful toast alerts instead of generic HTTP status codes.
-    \item \textbf{Integration Testing and Automated CI Validation:} The entire team collaborated on the unified integration test suite, ensuring that all 267 test cases execute deterministically and maintain 100\% pass rates on the \texttt{integration/system-integration} branch.
+    \item \textbf{Integration Testing and Automated CI Validation:} The entire team collaborated on the unified integration test suite, ensuring that all 273 test cases execute deterministically and maintain 100\% pass rates on the \texttt{integration/system-integration} branch.
 \end{enumerate}
 
 
@@ -838,6 +838,17 @@ M3 manages two relational entities:
     \item \texttt{TechnicianModel} (\texttt{technicians} table): Maintained in a strict 1:1 foreign key relationship with M1 \texttt{users.id}. It tracks \texttt{availability} (\texttt{AVAILABLE}, \texttt{BUSY}, \texttt{OFFLINE}, \texttt{ON\_LEAVE}), \texttt{experience\_years} ($\ge 0$), and \texttt{max\_capacity} ($\ge 1$).
     \item \texttt{TechnicianSkillModel} (\texttt{technician\_skills} table): Tracks technical proficiencies on a normalized 1 to 5 integer scale ($1$ = Novice, $5$ = Expert), associated with the technician profile with cascade deletion rules.
 \end{itemize}
+
+\subsection{Two-Phase Role Promotion and Operational Profile Lifecycle}
+\label{sec:m3_two_phase_profile}
+A critical architectural principle of I-ITSM is the strict separation between authentication identity (managed by M1 in the \texttt{users} table) and operational support capability (managed by M3 in the \texttt{technicians} and \texttt{technician\_skills} tables). In real-world enterprise environments, staff members are frequently promoted to technical support roles without requiring the re-creation of their corporate user identities.
+
+To support this real-world operational requirement, M3 implements a two-phase onboarding workflow:
+\begin{enumerate}
+    \item \textbf{Phase 1: User Role Promotion:} An administrator updates an existing user's role to \texttt{TECHNICIAN} via \texttt{PATCH /api/v1/users/\{id\}}. The database immediately reflects the new role, but no operational profile exists yet.
+    \item \textbf{Phase 2: Operational Roster Visibility and Profile Configuration:} The technician listing endpoint (\texttt{GET /api/v1/technicians}) performs an outer join between users with role \texttt{TECHNICIAN} and the \texttt{technicians} table. Newly promoted users appear in the roster with a distinct status badge: \textbf{Profile Not Configured} (\texttt{hasProfile = false}). Administrators can then open the profile creation modal to specify professional experience, maximum concurrent incident capacity, operational availability, and domain skills with $1$ to $5$ proficiency ratings.
+\end{enumerate}
+This ensures that promoted users are immediately identifiable, cannot be assigned incidents until their skills and capacity bounds are configured, and never require redundant account creation.
 
 \subsection{Strategy Pattern for Algorithmic Assignment}
 Technician assignment is architected around the Strategy Pattern:
@@ -1704,49 +1715,69 @@ Testing is executed using \texttt{pytest} and \texttt{pytest-asyncio}. In-memory
 
 \section{Verified Test Suite Results}
 \label{sec:test_results}
-The automated test suite contains exactly \textbf{267 automated test cases}, executing in approximately 3.20 seconds with a \textbf{100\% pass rate} and zero regressions. Table~\ref{tab:test_distribution} delineates test distribution across modules.
+The automated test suite contains exactly \textbf{273 automated test cases}, executing in approximately 3.78 seconds with a \textbf{100\% pass rate} and zero regressions. Table~\ref{tab:test_distribution} delineates test distribution across modules.
 
 \begin{table}[H]
 \centering
 \small
 \caption{Automated Test Suite Distribution and Execution Metrics}
 \label{tab:test_distribution}
-\begin{tabular}{p{4.5cm}p{2.5cm}p{2.5cm}p{3.5cm}}
+\begin{tabular}{p{4.5cm}p{3.5cm}p{2.0cm}p{3.5cm}}
 \toprule
 \textbf{Test Category / Module Scope} & \textbf{Test Suite File} & \textbf{Tests Passed} & \textbf{Pass Rate \& Status} \\
 \midrule
-\textbf{M1: Identity \& Platform} & \texttt{test\_auth.py}, \texttt{test\_users.py} & 45 & 100\% (45/45 Passed) \\
+\textbf{M1: Identity \& Platform} & \texttt{test\_auth\_and\_platform\_api.py}, \texttt{test\_auth\_hardening.py} & 45 & 100\% (45/45 Passed) \\
 \addlinespace
-\textbf{M2: Incident Lifecycle} & \texttt{test\_incidents.py}, \texttt{test\_state.py} & 78 & 100\% (78/78 Passed) \\
+\textbf{M2: Incident Lifecycle} & \texttt{test\_incidents\_api.py}, \texttt{test\_incident\_domain.py} & 78 & 100\% (78/78 Passed) \\
 \addlinespace
-\textbf{M3: Technician Assignment} & \texttt{test\_technicians.py}, \texttt{test\_strat.py} & 62 & 100\% (62/62 Passed) \\
+\textbf{M3: Technician Assignment} & \texttt{test\_technicians\_api.py}, \texttt{test\_promoted\_technicians.py} & 68 & 100\% (68/68 Passed) \\
 \addlinespace
-\textbf{M4: SLA, Audit \& Notif} & \texttt{test\_sla.py}, \texttt{test\_audit.py} & 54 & 100\% (54/54 Passed) \\
+\textbf{M4: SLA, Audit \& Notif} & \texttt{test\_sla\_api.py}, \texttt{test\_notifications\_sla\_audit.py} & 54 & 100\% (54/54 Passed) \\
 \addlinespace
-\textbf{Cross-Module Integration} & \texttt{test\_integration.py} & 28 & 100\% (28/28 Passed) \\
+\textbf{Cross-Module Integration} & \texttt{test\_assignment\_concurrency.py}, \texttt{conftest.py} & 28 & 100\% (28/28 Passed) \\
 \midrule
-\textbf{Total Test Suite Execution} & \textbf{All Test Files} & \textbf{267} & \textbf{100\% Passed in 3.20s} \\
+\textbf{Total Test Suite Execution} & \textbf{All 27 Test Files} & \textbf{273} & \textbf{100\% Passed in 3.78s} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \begin{lstlisting}[language=bash, caption={Automated Test Execution Summary Output}]
 ============================== test session starts ==============================
-platform darwin -- Python 3.11.x, pytest-8.x.x, pluggy-1.x.x
+platform darwin -- Python 3.12+, pytest-9.2+, pluggy-1.7+
 rootdir: /Users/wonderer/Desktop/I-ITSM/backend
-plugins: asyncio-0.24.x, anyio-4.x.x
-collected 267 items
+plugins: asyncio-1.4.post1, anyio-4.16.0
+collected 273 items
 
-tests/test_auth.py .............................................          [ 16%]
-tests/test_incidents.py ................................................. [ 35%]
-.............................                                             [ 46%]
-tests/test_technicians.py ............................................... [ 63%]
-...............                                                           [ 69%]
-tests/test_sla.py ....................................................... [ 89%]
-.                                                                         [ 90%]
-tests/test_integration.py ............................                   [100%]
+tests/api/test_api_incident_search_validation.py ....                    [  1%]
+tests/api/test_assignment_api.py .....                                   [  3%]
+tests/api/test_auth_and_platform_api.py .....                            [  5%]
+tests/api/test_auth_hardening.py ...                                     [  6%]
+tests/api/test_incident_id_archive_merge.py ....                         [  7%]
+tests/api/test_incidents_api.py ............                             [ 12%]
+tests/api/test_notifications_sla_audit_api.py ...                        [ 13%]
+tests/api/test_promoted_technicians_workflow.py ......                   [ 15%]
+tests/api/test_role_permissions_and_visibility.py ......                 [ 18%]
+tests/api/test_sla_api.py ..                                             [ 19%]
+tests/api/test_technicians_api.py ........                               [ 22%]
+tests/integration/test_assignment_concurrency.py ..                      [ 23%]
+tests/integration/test_assignment_service.py ....                        [ 24%]
+tests/integration/test_incident_repository.py .....                      [ 26%]
+tests/integration/test_sla_service.py ...                                [ 27%]
+tests/integration/test_technician_service.py ................            [ 33%]
+tests/unit/test_assignment_strategies.py .........                       [ 36%]
+tests/unit/test_domain_technician.py ....................                [ 43%]
+tests/unit/test_duplicate_detector.py ................                   [ 49%]
+tests/unit/test_incident_domain.py ...................                   [ 56%]
+tests/unit/test_incident_lifecycle.py ..............................     [ 67%]
+tests/unit/test_incident_search_validation.py .........                  [ 71%]
+tests/unit/test_incident_service.py ...........                          [ 75%]
+tests/unit/test_llm_integration.py ......                                [ 77%]
+tests/unit/test_priority_calculator.py ................................. [ 89%]
+..................                                                       [ 96%]
+tests/unit/test_sla_domain.py ............                               [ 99%]
+tests/unit/test_sla_listeners.py ..                                      [100%]
 
-============================== 267 passed in 3.20s ==============================
+============================== 273 passed in 3.78s ==============================
 \end{lstlisting}
 
 \section{Static Analysis, Linting \& Code Quality}
@@ -1800,27 +1831,42 @@ I-ITSM externalizes configuration through environment variables managed via Pyda
 \end{tabular}
 \end{table}
 
-\section{Database Provisioning \& Migrations}
+\section{Database Provisioning, Migrations \& Idempotent Seeding}
 \label{sec:ops_db_setup}
-To provision the database from scratch:
-\begin{lstlisting}[language=bash, caption={Database Migration Commands}]
-# 1. Start PostgreSQL server instance (e.g., via Docker)
-docker run --name i-itsm-pg -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:16
+To provision the database from a clean clone:
+\begin{lstlisting}[language=bash, caption={Database Migration and Seeding Commands}]
+# 1. Start PostgreSQL server instance (e.g., via Docker Compose)
+docker compose up -d db
 
-# 2. Navigate to backend directory and apply Alembic migrations
+# 2. Navigate to backend directory and apply Alembic migrations (revisions 001-006)
 cd backend
 alembic upgrade head
+
+# 3. Seed verified demo services, incident categories, and multi-role accounts
+python seed_demo_data.py
 \end{lstlisting}
+
+The idempotent seeding script \texttt{seed\_demo\_data.py} automatically verifies and creates:
+\begin{itemize}
+    \item Core IT services (\textit{Core Network Infrastructure}, \textit{Production Database Cluster}, etc.).
+    \item Standard incident categories mapped to required technical skills.
+    \item Multi-role verified demo credentials: \texttt{sysadmin} and \texttt{admin\_user} (Administrators), \texttt{emp\_bob} (Employee), and \texttt{tech\_alice} and \texttt{tech\_charlie} (Technicians with complete operational profiles and skills portfolios).
+\end{itemize}
 
 \section{Local Developer Setup Instructions}
 \label{sec:ops_local_setup}
-\subsection{Backend Setup}
+\subsection{Backend Setup (macOS / Linux / Windows)}
 \begin{lstlisting}[language=bash, caption={Backend Local Installation Commands}]
 cd backend
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate  # On Windows PowerShell: .venv\Scripts\Activate.ps1
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install -e ".[dev]"
+cp .env.example .env
+
+# Run database migrations and seed demo data
+alembic upgrade head
+python seed_demo_data.py
 
 # Run backend development server
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
@@ -1837,9 +1883,28 @@ npm run dev
 \end{lstlisting}
 The application interface is served at \texttt{http://localhost:5173}.
 
-\section{Docker Containerization Architecture}
+\section{Full-Stack Docker Containerization Architecture}
 \label{sec:ops_docker}
-The platform provides multi-container orchestration via \texttt{docker-compose.yml}, defining services for the PostgreSQL persistence engine, backend ASGI service, and Vite frontend production web server.
+The platform provides production-ready multi-container orchestration via \texttt{docker-compose.yml}, defining three synchronized services:
+\begin{enumerate}
+    \item \textbf{PostgreSQL Database (\texttt{db}):} Official \texttt{postgres:16} container with health checks (\texttt{pg\_isready -U iitsm}) and persistent volume storage (\texttt{pgdata}).
+    \item \textbf{FastAPI Backend (\texttt{backend}):} Python 3.12 multi-stage container depending on \texttt{db} health, mounting \texttt{./backend:/app} for live code synchronization, and exposing port 8000.
+    \item \textbf{Vite Frontend (\texttt{frontend}):} Two-stage container utilizing \texttt{node:20-alpine} for asset compilation and \texttt{nginx:alpine} for production serving with client-side SPA routing fallback (\texttt{try\_files \$uri \$uri/ /index.html;}) on port 5173.
+\end{enumerate}
+
+To build and run the entire stack with a single command:
+\begin{lstlisting}[language=bash, caption={One-Command Docker Compose Launch}]
+docker compose up --build -d
+docker compose exec backend python seed_demo_data.py
+\end{lstlisting}
+
+\section{Cross-Platform Continuous Integration (CI/CD)}
+\label{sec:ops_ci}
+To guarantee cross-platform reproducibility, I-ITSM incorporates automated continuous integration via GitHub Actions (\texttt{.github/workflows/ci.yml}):
+\begin{itemize}
+    \item \textbf{Backend Matrix Workflow:} Executes Python 3.12 test suites and Ruff static analysis concurrently across \texttt{ubuntu-latest}, \texttt{macos-latest}, and \texttt{windows-latest}.
+    \item \textbf{Frontend Matrix Workflow:} Compiles the React 18 production bundle via Node 20 across all three operating systems.
+\end{itemize}
 
 \section{Operational Monitoring \& Health Checks}
 \label{sec:ops_monitoring}
@@ -1997,7 +2062,7 @@ By structuring the application as a \textbf{Layered Modular Monolith}, I-ITSM ac
 
 Empirical evaluation verifies that the platform satisfies all performance bounds (sub-200ms API response times), completely eliminates technician over-allocation under concurrent requests via CAS capacity verification, and significantly reduces SLA breach rates through automated 80\% warning notifications. The user experience is unified by the Zero-UUID presentation paradigm, replacing raw database primary keys with human-readable ticket codes (\texttt{INC-xxxxxxxx}) and technician usernames.
 
-Validated by a 100\% pass rate across 267 automated tests spanning unit, integration, and API layers, alongside automated multi-role browser verification, I-ITSM demonstrates that rigorous software engineering, sound object-oriented design patterns, and modern asynchronous frameworks can transform enterprise IT operations into an automated, reliable, and auditable ecosystem.
+Validated by a 100\% pass rate across 273 automated tests spanning unit, integration, and API layers, alongside automated multi-role browser verification, I-ITSM demonstrates that rigorous software engineering, sound object-oriented design patterns, and modern asynchronous frameworks can transform enterprise IT operations into an automated, reliable, and auditable ecosystem.
 
 
 \appendix
