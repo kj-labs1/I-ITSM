@@ -1,10 +1,12 @@
 # =============================================================================
-# I-ITSM — Docker Compose (Development)
+# I-ITSM — Docker Compose (Full Stack)
 # =============================================================================
 # Usage:
-#   docker compose up -d        # start all services
-#   docker compose logs -f      # tail logs
-#   docker compose down -v      # stop and remove volumes
+#   docker compose up -d                  # Start all services (db, backend, frontend)
+#   docker compose exec backend alembic upgrade head    # Run migrations
+#   docker compose exec backend python seed_demo_data.py # Seed demo data
+#   docker compose logs -f                # Tail logs
+#   docker compose down -v                # Stop and clean volumes
 # =============================================================================
 
 services:
@@ -15,13 +17,13 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: iitsm
-      POSTGRES_PASSWORD: iitsm
-      POSTGRES_DB: iitsm
+      POSTGRES_USER: ${POSTGRES_USER:-iitsm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-iitsm}
+      POSTGRES_DB: ${POSTGRES_DB:-iitsm}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U iitsm"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-iitsm}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -37,11 +39,25 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    env_file:
-      - ./backend/.env
     environment:
-      # Override DATABASE_URL to point at the compose 'db' service
-      DATABASE_URL: "postgresql+psycopg://iitsm:iitsm@db:5432/iitsm"
+      DATABASE_URL: "postgresql+psycopg://${POSTGRES_USER:-iitsm}:${POSTGRES_PASSWORD:-iitsm}@db:5432/${POSTGRES_DB:-iitsm}"
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-this-jwt-secret-key-in-production-min-32-chars}
+      CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:80","http://127.0.0.1:3000","http://127.0.0.1:5173"]'
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DEBUG: ${DEBUG:-false}
+
+  # ── React/Vite Frontend ───────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:8000/api/v1
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
 
 volumes:
   pgdata:

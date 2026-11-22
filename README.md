@@ -6,7 +6,7 @@
 [![Vite](https://img.shields.io/badge/Vite-5.x-646cff.svg)](https://vitejs.dev/)
 [![SQLAlchemy 2.x](https://img.shields.io/badge/SQLAlchemy-2.0%2B-red.svg)](https://www.sqlalchemy.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%2B-336791.svg)](https://www.postgresql.org/)
-[![Tests](https://img.shields.io/badge/tests-267%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-273%20passed-brightgreen.svg)]()
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
 An enterprise-grade, object-oriented Intelligent IT Service Management (I-ITSM) system developed for **CS F213 / MAC F212 (Object-Oriented Programming)**. The system features a production-ready **FastAPI** backend with strict layered clean architecture, a **React 18 + Vite** frontend with role-based dashboards, a PostgreSQL relational database with Alembic migrations, an asynchronous event-driven bus (Observer Pattern), an AI-assisted technician recommendation engine (Strategy & Adapter Patterns), automated SLA compliance monitoring, audit trail logging, and in-app notifications.
@@ -198,24 +198,48 @@ I-ITSM/
 
 ## 5. Quick Start & Installation
 
-### Prerequisites
-- **Python 3.12+** (tested on Python 3.12 and Python 3.14)
-- **Node.js 18+** & `npm`
-- **PostgreSQL 16+** (local instance or Docker container)
+> [!TIP]
+> **Complete Beginner & Multi-OS Guide:** For a comprehensive, step-by-step walkthrough covering macOS, Windows (PowerShell), and Linux, seed demo credentials, troubleshooting, and full user-creation manuals for all roles, see **[Complete Installation & User Guide](file:///Users/wonderer/Desktop/I-ITSM/docs/INSTALLATION_AND_USER_GUIDE.md)**.
+
+### Option A: 1-Minute Docker Compose (Recommended)
+
+Run the full stack (PostgreSQL 16, FastAPI backend, and React 18 frontend) with a single command:
+
+```bash
+docker compose up --build -d
+```
+
+- **Frontend Application:** [http://localhost:5173](http://localhost:5173)
+- **Backend Swagger UI:** [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Health Check:** [http://localhost:8000/health](http://localhost:8000/health)
+
+*(Optional)* Seed sample services, categories, and demo user accounts:
+```bash
+docker compose exec backend python seed_demo_data.py
+```
+
+---
+
+### Option B: Native Host Setup
+
+#### Prerequisites
+- **Python 3.12+**
+- **Node.js 20+** & `npm`
+- **PostgreSQL 16+** (local instance or `docker compose up -d db`)
 - **Git**
 
-### 5.1 Database Setup (PostgreSQL)
-Ensure PostgreSQL is running locally or start it via Docker:
+#### 5.1 Database Setup (PostgreSQL)
+Ensure PostgreSQL is running locally or start the database container:
 ```bash
 docker compose up -d db
 ```
-Default connection URL: `postgresql+psycopg://postgres:postgres@localhost:5432/iitsm`
+Default connection URL: `postgresql+psycopg://iitsm:iitsm@localhost:5432/iitsm`
 
-### 5.2 Backend Setup
+#### 5.2 Backend Setup
 ```bash
 cd backend
 
-# Create virtual environment
+# Create and activate virtual environment
 python3 -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
@@ -229,13 +253,16 @@ cp .env.example .env
 # Apply database migrations (revisions 001 through 006)
 alembic upgrade head
 
+# Seed complete demo data (Services, Categories, and Demo Accounts)
+python seed_demo_data.py
+
 # Start Uvicorn backend server
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 - Interactive Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs)
 - Health Check: [http://localhost:8000/health](http://localhost:8000/health)
 
-### 5.3 Frontend Setup
+#### 5.3 Frontend Setup
 In a new terminal window:
 ```bash
 cd frontend
@@ -244,21 +271,35 @@ cd frontend
 npm install
 
 # Start Vite development server
-npm run dev -- --port 3000
+npm run dev
 ```
-- Open application: [http://localhost:3000](http://localhost:3000)
+- Open application: [http://localhost:5173](http://localhost:5173)
+
+---
+
+### Pre-Seeded Demo Accounts
+
+When you run `python seed_demo_data.py` (or `docker compose exec backend python seed_demo_data.py`), the following accounts are ready to use immediately:
+
+| Username | Password | Role | Description |
+|---|---|---|---|
+| `sysadmin` | `SysAdmin@123` | `ADMIN` | System Administrator (Full platform access) |
+| `admin_user` | `AdminUser@123` | `ADMIN` | Secondary Operations Administrator |
+| `emp_bob` | `EmpBob@123` | `EMPLOYEE` | Standard Employee (Reports & tracks incidents) |
+| `tech_alice` | `TechAlice@123` | `TECHNICIAN` | Senior Specialist (Skills: `NETWORK`, `SECURITY`, `CLOUD`) |
+| `tech_charlie` | `TechCharlie@123` | `TECHNICIAN` | Specialist (Skills: `HARDWARE`, `SOFTWARE`, `APPLICATION`) |
 
 ---
 
 ## 6. Running Tests & Code Quality
 
-The backend includes a comprehensive automated test suite of **267 test cases** executing completely offline with zero external network or database dependencies (via SQLite in-memory engine and mock LLM providers):
+The backend includes a comprehensive automated test suite of **273 test cases** executing completely offline with zero external network or database dependencies (via SQLite in-memory engine and mock LLM providers):
 
 ```bash
 cd backend
 source .venv/bin/activate
 
-# Execute all 267 automated tests
+# Execute all 273 automated tests
 pytest -v
 
 # Run linter and formatting checks
@@ -287,6 +328,7 @@ npm run build
 ## 8. Detailed Documentation Index
 
 For comprehensive technical specifications, please consult the dedicated documentation files:
+- [Complete Installation & User Guide](file:///Users/wonderer/Desktop/I-ITSM/docs/INSTALLATION_AND_USER_GUIDE.md) — Multi-OS fresh-clone guide, Docker, seeding, and all role workflows.
 - [Architecture Specification](file:///Users/wonderer/Desktop/I-ITSM/docs/ARCHITECTURE.md) — System layering, event bus, and component relationships.
 - [REST API Contracts](file:///Users/wonderer/Desktop/I-ITSM/docs/API_CONTRACTS.md) — Complete endpoint documentation with request/response schemas.
 - [Database Schema & Migrations](file:///Users/wonderer/Desktop/I-ITSM/docs/DATABASE_DESIGN.md) — Relational schema, ER diagrams, indexes, and migrations 001–006.

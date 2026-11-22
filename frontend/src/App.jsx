@@ -24,7 +24,7 @@ import {
   getNotificationSvg,
 } from "./components/Icons";
 
-const API = "http://127.0.0.1:8000/api/v1";
+const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api/v1";
 
 async function api(path, token, options = {}) {
   const headers = { ...(options.headers || {}) };
