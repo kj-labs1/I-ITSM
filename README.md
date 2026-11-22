@@ -156,7 +156,7 @@ flowchart TD
         ERR_HDL["Centralized Error Extractor"]
     end
 
-    subgraph API ["Presentation Layer (FastAPI /api/v1)"]
+    subgraph Presentation ["Presentation Layer (FastAPI)"]
         AUTH_ROUTER["Auth & Profile (/auth)"]
         USER_ROUTER["User Management (/users)"]
         INC_ROUTER["Incidents & Archiving (/incidents)"]
@@ -182,20 +182,23 @@ flowchart TD
         SLA_ENT["SLA Policy & Tracking Aggregates"]
     end
 
-    subgraph Infra ["Infrastructure & Persistence Layer"]
+    subgraph Infra ["Infrastructure Layer"]
         EVENT_BUS["InProcessEventBus (Observer Pattern)"]
         REPO_IMPL["SQLAlchemy 2.0 Repositories"]
         LLM_ADAPT["LLM Provider (Adapter Pattern)"]
-        DB_ENGINE[(PostgreSQL 16 Engine / Alembic)]
     end
 
-    Client -->|HTTP / JSON (REST)| API
-    API --> AppService
+    subgraph Storage ["Persistence Layer"]
+        DB_ENGINE[("PostgreSQL 16 Engine & Alembic")]
+    end
+
+    Client -->|"HTTP / REST API"| Presentation
+    Presentation --> AppService
     AppService --> Domain
     AppService --> Infra
-    Infra --> DB_ENGINE
-    Infra -.->|Domain Events| EVENT_BUS
-    EVENT_BUS -.->|Notify| AppService
+    Infra --> Storage
+    Infra -.->|"Domain Events"| EVENT_BUS
+    EVENT_BUS -.->|"Notify"| AppService
 ```
 
 ### Layer Responsibilities
@@ -368,10 +371,10 @@ erDiagram
 
     users {
         uuid id PK
-        string username UK
-        string email UK
+        string username
+        string email
         string hashed_password
-        enum role "EMPLOYEE, TECHNICIAN, ADMIN"
+        string role
         boolean is_active
         datetime created_at
         datetime updated_at
@@ -379,7 +382,7 @@ erDiagram
 
     services {
         uuid id PK
-        string name UK
+        string name
         string description
         boolean is_active
         datetime created_at
@@ -388,7 +391,7 @@ erDiagram
 
     incident_categories {
         uuid id PK
-        string name UK
+        string name
         string description
         boolean is_active
         datetime created_at
@@ -397,8 +400,8 @@ erDiagram
 
     technicians {
         uuid id PK
-        uuid user_id FK, UK
-        enum status "AVAILABLE, BUSY, OFFLINE, ON_LEAVE"
+        uuid user_id FK
+        string status
         int max_workload
         int current_workload
         datetime created_at
@@ -409,7 +412,7 @@ erDiagram
         uuid id PK
         uuid technician_id FK
         string category
-        int proficiency_level "1 to 5"
+        int proficiency_level
         datetime created_at
     }
 
@@ -417,9 +420,9 @@ erDiagram
         uuid id PK
         string title
         string description
-        enum priority "P1, P2, P3, P4"
-        enum status "NEW, CLASSIFIED, ASSIGNED, ACKNOWLEDGED, IN_PROGRESS, RESOLVED, VERIFIED, CLOSED"
-        enum category "HARDWARE, SOFTWARE, NETWORK, etc."
+        string priority
+        string status
+        string category
         uuid service_id FK
         uuid reporter_id FK
         uuid technician_id FK
@@ -438,7 +441,7 @@ erDiagram
 
     sla_policies {
         uuid id PK
-        enum priority UK "P1, P2, P3, P4"
+        string priority
         int response_time_minutes
         int resolution_time_minutes
         boolean is_active
@@ -448,7 +451,7 @@ erDiagram
 
     incident_sla_tracking {
         uuid id PK
-        uuid incident_id FK, UK
+        uuid incident_id FK
         uuid policy_id FK
         datetime response_deadline
         datetime resolution_deadline
