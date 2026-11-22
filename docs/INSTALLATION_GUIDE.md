@@ -29,7 +29,10 @@ cd I-ITSM
 # 2. Build and launch all services in detached mode
 docker compose up --build -d
 
-# 3. Seed demo accounts, IT services, and incident categories
+# 3. Apply database migrations
+docker compose exec backend alembic upgrade head
+
+# 4. Seed demo accounts, IT services, and incident categories
 docker compose exec backend python seed_demo_data.py
 ```
 
