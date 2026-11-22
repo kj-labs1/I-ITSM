@@ -85,3 +85,51 @@ To safeguard enterprise data confidentiality:
 
 ### 4.2 Guaranteed Deterministic Fallback
 Under no circumstances will an external LLM outage cause an API failure (`500 Internal Server Error`). If the LLM provider fails, times out, or returns invalid syntax, the service catches the exception and immediately falls back to the deterministic rankings.
+
+### 4.3 Switching from Mock to a Real LLM Model
+
+By default, I-ITSM runs in offline mode using `LLM_PROVIDER=mock`. To connect a live model, update `backend/.env` without changing any code:
+
+#### A. OpenAI (GPT-4o-mini / GPT-4o)
+```env
+LLM_PROVIDER=openai_compatible
+LLM_API_KEY=sk-proj-your-openai-api-key
+LLM_MODEL=gpt-4o-mini
+LLM_BASE_URL=https://api.openai.com/v1
+LLM_ENABLED=true
+LLM_TIMEOUT_SECONDS=30
+LLM_MAX_RETRIES=2
+```
+
+#### B. Free Local LLM via Ollama (No API Key Required)
+```env
+LLM_PROVIDER=openai_compatible
+LLM_API_KEY=ollama
+LLM_MODEL=llama3.2
+LLM_BASE_URL=http://localhost:11434/v1
+LLM_ENABLED=true
+LLM_TIMEOUT_SECONDS=60
+LLM_MAX_RETRIES=1
+```
+
+#### C. Groq (Fast Inference Cloud)
+```env
+LLM_PROVIDER=openai_compatible
+LLM_API_KEY=gsk_your-groq-api-key
+LLM_MODEL=llama-3.3-70b-versatile
+LLM_BASE_URL=https://api.groq.com/openai/v1
+LLM_ENABLED=true
+LLM_TIMEOUT_SECONDS=15
+LLM_MAX_RETRIES=2
+```
+
+#### D. Google Gemini (via OpenAI-Compatible Endpoint)
+```env
+LLM_PROVIDER=openai_compatible
+LLM_API_KEY=your-gemini-api-key
+LLM_MODEL=gemini-1.5-flash
+LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+LLM_ENABLED=true
+LLM_TIMEOUT_SECONDS=20
+LLM_MAX_RETRIES=2
+```

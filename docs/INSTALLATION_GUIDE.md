@@ -46,94 +46,7 @@ docker compose exec backend python seed_demo_data.py
 
 ---
 
-## 3. Native Host Setup: Step-by-Step
-
-If you prefer running services directly on your host machine without Docker:
-
-### 3.1 Start PostgreSQL
-Ensure a local PostgreSQL server is active, or run just the database container:
-```bash
-docker compose up -d db
-```
-Default connection URL: `postgresql+psycopg://iitsm:iitsm@localhost:5432/iitsm`
-
----
-
-### 3.2 Backend Setup (Terminal 1)
-
-#### On macOS / Linux (bash/zsh):
-```bash
-cd backend
-
-# Create & activate Python virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
-
-# Upgrade pip & install package in editable mode with development dependencies
-pip install --upgrade pip
-pip install -e ".[dev]"
-
-# Configure environment variables
-cp .env.example .env
-
-# Run database migrations to revision 006
-alembic upgrade head
-
-# Seed complete demo data (Services, Categories, and Demo Accounts)
-python seed_demo_data.py
-
-# Start Uvicorn development server
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-#### On Windows (PowerShell):
-```powershell
-cd backend
-
-# Create & activate Python virtual environment
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-
-# Upgrade pip & install dependencies
-python -m pip install --upgrade pip
-pip install -e ".[dev]"
-
-# Configure environment variables
-Copy-Item .env.example .env
-
-# Run database migrations
-alembic upgrade head
-
-# Seed demo data
-python seed_demo_data.py
-
-# Start Uvicorn development server
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-- Interactive API Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
-- Health Endpoint: [http://localhost:8000/health](http://localhost:8000/health)
-
----
-
-### 3.3 Frontend Setup (Terminal 2)
-
-In a new terminal window:
-```bash
-cd frontend
-
-# Install dependencies
-npm install
-
-# Start Vite development server
-npm run dev
-```
-
-- Open your browser at: **[http://localhost:5173](http://localhost:5173)**
-
----
-
-## 4. Pre-Seeded Demo Login Credentials
+## 3. Pre-Seeded Demo Login Credentials
 
 Running `python seed_demo_data.py` (or `docker compose exec backend python seed_demo_data.py`) automatically populates the database with verified demo accounts across all supported roles:
 
@@ -147,7 +60,7 @@ Running `python seed_demo_data.py` (or `docker compose exec backend python seed_
 
 ---
 
-## 5. Environment Variables Specification
+## 4. Environment Variables Specification
 
 The backend reads configuration from environment variables or `backend/.env`.
 
@@ -174,7 +87,7 @@ Frontend environment variables (`frontend/.env`):
 
 ---
 
-## 6. Database Migrations Workflow (Alembic)
+## 5. Database Migrations Workflow (Alembic)
 
 Database schema versions are managed via Alembic in `backend/migrations/`:
 - `001_initial_technician_schema`: Creates `technicians` and `technician_skills` tables.
@@ -204,7 +117,7 @@ alembic downgrade -1
 
 ---
 
-## 7. Verification & Troubleshooting
+## 6. Verification & Troubleshooting
 
 ### Port Conflicts
 - **Port 5432 in use:** If local PostgreSQL is already occupying port 5432, stop it via `brew services stop postgresql@17` (macOS) or `sudo systemctl stop postgresql` (Linux) before running `docker compose up -d db`.
