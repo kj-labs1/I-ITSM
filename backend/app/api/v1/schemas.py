@@ -220,7 +220,7 @@ class AvailabilityUpdateRequest(BaseDTO):
 class TechnicianResponse(BaseDTO):
     """Read representation of a technician profile with computed workload."""
 
-    id: UUID
+    id: UUID | None = None
     user_id: UUID
     username: str | None = None
     full_name: str | None = None
@@ -231,6 +231,7 @@ class TechnicianResponse(BaseDTO):
     active_incident_count: int
     remaining_capacity: int
     skills: list[SkillResponse]
+    has_profile: bool = True
     created_at: datetime
     updated_at: datetime
 

@@ -137,6 +137,18 @@ class TechnicianNotFoundError(NotFoundError):
         )
 
 
+class UserNotFoundError(NotFoundError):
+    """A specific user could not be found."""
+
+    def __init__(self, resource_id: str | UUID | None = None, message: str | None = None) -> None:
+        super().__init__(
+            resource_type="User",
+            resource_id=resource_id,
+            message=message,
+            error_code="USER_NOT_FOUND",
+        )
+
+
 class IncidentNotFoundError(NotFoundError):
     """A specific incident could not be found."""
 

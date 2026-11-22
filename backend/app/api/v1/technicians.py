@@ -20,6 +20,7 @@ import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
     get_actor_identity,
@@ -42,6 +43,8 @@ from app.application.assignment.service import (
 from app.application.technician.service import TechnicianProfileService
 from app.domain.identity.user import UserIdentity
 from app.domain.technician.technician import Technician
+from app.infrastructure.database.models import UserModel
+from app.infrastructure.database.session import get_db_session
 from app.shared.enums import AssignmentStrategyType, UserRole
 
 logger = logging.getLogger(__name__)
@@ -74,6 +77,7 @@ def _to_technician_response(tech: Technician) -> TechnicianResponse:
         active_incident_count=tech.active_incident_count,
         remaining_capacity=tech.remaining_capacity,
         skills=skills_response,
+        has_profile=getattr(tech, "has_profile", True),
         created_at=tech.created_at,
         updated_at=tech.updated_at,
     )
@@ -181,12 +185,22 @@ async def create_technician(
     payload: TechnicianCreateRequest,
     actor: UserIdentity = Depends(get_actor_identity),
     service: TechnicianProfileService = Depends(get_technician_service),
+    db: AsyncSession = Depends(get_db_session),
 ) -> TechnicianResponse:
     if actor.role != UserRole.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only administrators can create technician profiles.",
         )
+
+    # Validate that user exists and has role TECHNICIAN (if user table has the record)
+    user = await db.get(UserModel, payload.user_id)
+    if user is not None and user.role != UserRole.TECHNICIAN:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"User must have role '{UserRole.TECHNICIAN.value}' to create a technician profile. Current role is '{user.role.value}'.",
+        )
+
     skills_tuples = [(s.skill_name, s.proficiency_level) for s in payload.skills]
     tech = await service.create_technician(
         user_id=payload.user_id,

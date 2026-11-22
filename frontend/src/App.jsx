@@ -1653,8 +1653,205 @@ function EditTechnicianModal({ technician, onClose, perform }) {
   );
 }
 
+function AddTechnicianProfileModal({ user, onClose, perform }) {
+  const [experienceYears, setExperienceYears] = useState(1);
+  const [maxCapacity, setMaxCapacity] = useState(10);
+  const [skillName, setSkillName] = useState("SOFTWARE");
+  const [proficiency, setProficiency] = useState(3);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const commonSkills = [
+    "HARDWARE",
+    "SOFTWARE",
+    "NETWORK",
+    "DATABASE",
+    "CLOUD",
+    "SECURITY",
+    "AUTHENTICATION",
+    "APPLICATION",
+    "STORAGE",
+  ];
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+    setSubmitting(true);
+    try {
+      const skills = skillName.trim()
+        ? [{ skillName: skillName.trim().toUpperCase(), proficiencyLevel: Number(proficiency) }]
+        : [];
+
+      await perform(
+        "/technicians",
+        "POST",
+        {
+          userId: user.userId,
+          experienceYears: Number(experienceYears),
+          maxCapacity: Number(maxCapacity),
+          skills,
+        },
+        `Technician profile created for ${user.username || user.fullName}.`
+      );
+      onClose();
+    } catch (err) {
+      setError(extractErrorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div
+      className="modal-backdrop"
+      style={{
+        position: "fixed",
+        inset: 0,
+        backgroundColor: "rgba(0,0,0,0.55)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+        padding: "20px",
+      }}
+    >
+      <div
+        className="modal-card"
+        style={{
+          backgroundColor: "#ffffff",
+          borderRadius: "8px",
+          maxWidth: "520px",
+          width: "100%",
+          maxHeight: "90vh",
+          overflowY: "auto",
+          boxShadow: "0 12px 28px rgba(0,0,0,0.2)",
+          padding: "24px",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            borderBottom: "1px solid #d0d7de",
+            paddingBottom: "12px",
+            marginBottom: "16px",
+          }}
+        >
+          <div>
+            <h2 style={{ margin: 0, fontSize: "18px" }}>
+              Configure Technician Profile
+            </h2>
+            <p style={{ margin: "4px 0 0 0", fontSize: "13px", color: "#57606a" }}>
+              {user.fullName ? `${user.fullName} (@${user.username})` : `@${user.username}`} · {user.email || "No email"}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="button button-small button-outline"
+            onClick={onClose}
+            style={{ fontSize: "16px", padding: "2px 8px", display: "inline-flex", alignItems: "center" }}
+            aria-label="Close"
+          >
+            <XIcon size={14} />
+          </button>
+        </div>
+
+        {error && (
+          <div className="alert alert-error" style={{ marginBottom: "14px" }}>
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div className="field" style={{ margin: 0 }}>
+              <label style={{ fontSize: "12px", fontWeight: "600" }}>Experience (Years)</label>
+              <input
+                type="number"
+                min="0"
+                max="50"
+                value={experienceYears}
+                onChange={(e) => setExperienceYears(e.target.value)}
+                required
+                style={{ width: "100%", padding: "6px 8px" }}
+              />
+            </div>
+            <div className="field" style={{ margin: 0 }}>
+              <label style={{ fontSize: "12px", fontWeight: "600" }}>Max Workload Capacity</label>
+              <input
+                type="number"
+                min="1"
+                max="50"
+                value={maxCapacity}
+                onChange={(e) => setMaxCapacity(e.target.value)}
+                required
+                style={{ width: "100%", padding: "6px 8px" }}
+              />
+            </div>
+          </div>
+
+          <div
+            style={{
+              padding: "14px",
+              backgroundColor: "#f6f8fa",
+              borderRadius: "6px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "10px",
+            }}
+          >
+            <h4 style={{ margin: 0, fontSize: "13px", fontWeight: "600" }}>Initial Technical Skill</h4>
+            <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: "10px" }}>
+              <div className="field" style={{ margin: 0 }}>
+                <label style={{ fontSize: "12px" }}>Skill Name</label>
+                <input
+                  list="add-common-skills"
+                  value={skillName}
+                  onChange={(e) => setSkillName(e.target.value)}
+                  placeholder="e.g. NETWORK"
+                  style={{ width: "100%", padding: "6px 8px" }}
+                />
+                <datalist id="add-common-skills">
+                  {commonSkills.map((sk) => (
+                    <option key={sk} value={sk} />
+                  ))}
+                </datalist>
+              </div>
+              <div className="field" style={{ margin: 0 }}>
+                <label style={{ fontSize: "12px" }}>Proficiency (1-5)</label>
+                <select
+                  value={proficiency}
+                  onChange={(e) => setProficiency(e.target.value)}
+                  style={{ width: "100%", padding: "6px 8px" }}
+                >
+                  {[1, 2, 3, 4, 5].map((lvl) => (
+                    <option key={lvl} value={lvl}>
+                      Level {lvl} {lvl === 1 ? "(Novice)" : lvl === 5 ? "(Expert)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "8px" }}>
+            <button type="button" className="button button-outline" onClick={onClose} disabled={submitting}>
+              Cancel
+            </button>
+            <button type="submit" className="button button-primary" disabled={submitting}>
+              {submitting ? "Saving..." : "Save Technician Profile"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function TechniciansPage({ technicians, perform }) {
   const [editingTech, setEditingTech] = useState(null);
+  const [configuringUser, setConfiguringUser] = useState(null);
 
   // Keep modal data fresh when technicians array is updated
   const activeEditingTech = editingTech
@@ -1667,6 +1864,13 @@ function TechniciansPage({ technicians, perform }) {
         <EditTechnicianModal
           technician={activeEditingTech}
           onClose={() => setEditingTech(null)}
+          perform={perform}
+        />
+      )}
+      {configuringUser && (
+        <AddTechnicianProfileModal
+          user={configuringUser}
+          onClose={() => setConfiguringUser(null)}
           perform={perform}
         />
       )}
@@ -1692,13 +1896,30 @@ function TechniciansPage({ technicians, perform }) {
             </thead>
             <tbody>
               {technicians.map((t) => (
-                <tr key={t.id}>
+                <tr key={t.id || t.userId}>
                   <td>
                     <strong>{t.username || "—"}</strong>
                   </td>
                   <td>{t.fullName || "—"}</td>
                   <td>
-                    {!t.skills || t.skills.length === 0 ? (
+                    {t.hasProfile === false ? (
+                      <span
+                        style={{
+                          fontSize: "12px",
+                          padding: "2px 8px",
+                          borderRadius: "12px",
+                          backgroundColor: "#fff8c5",
+                          color: "#9a6700",
+                          border: "1px solid #d4a72c66",
+                          fontWeight: "600",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        Profile Not Configured
+                      </span>
+                    ) : !t.skills || t.skills.length === 0 ? (
                       <span style={{ color: "#656d76", fontStyle: "italic", fontSize: "13px" }}>
                         No skills added
                       </span>
@@ -1724,37 +1945,62 @@ function TechniciansPage({ technicians, perform }) {
                     )}
                   </td>
                   <td>
-                    <span className={`status ${t.availability === "AVAILABLE" ? "active" : "inactive"}`}>
-                      {t.availability}
-                    </span>
+                    {t.hasProfile === false ? (
+                      <span style={{ color: "#8c959f", fontSize: "13px" }}>—</span>
+                    ) : (
+                      <span className={`status ${t.availability === "AVAILABLE" ? "active" : "inactive"}`}>
+                        {t.availability}
+                      </span>
+                    )}
                   </td>
-                  <td>{t.experienceYears} yrs</td>
                   <td>
-                    <span className={`status ${t.activeIncidentCount >= t.maxCapacity ? "inactive" : "active"}`}>
-                      {t.activeIncidentCount} / {t.maxCapacity}
-                    </span>
+                    {t.hasProfile === false ? (
+                      <span style={{ color: "#8c959f", fontSize: "13px" }}>—</span>
+                    ) : (
+                      `${t.experienceYears} yrs`
+                    )}
+                  </td>
+                  <td>
+                    {t.hasProfile === false ? (
+                      <span style={{ color: "#8c959f", fontSize: "13px" }}>—</span>
+                    ) : (
+                      <span className={`status ${t.activeIncidentCount >= t.maxCapacity ? "inactive" : "active"}`}>
+                        {t.activeIncidentCount} / {t.maxCapacity}
+                      </span>
+                    )}
                   </td>
                   <td>
                     <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                      <button
-                        className="button button-small button-outline"
-                        onClick={() =>
-                          perform(
-                            `/technicians/${t.id}/availability`,
-                            "PATCH",
-                            { availability: t.availability === "AVAILABLE" ? "BUSY" : "AVAILABLE" },
-                            `Updated availability for ${t.username || t.fullName || "technician"}`
-                          )
-                        }
-                      >
-                        Toggle {t.availability === "AVAILABLE" ? "Busy" : "Available"}
-                      </button>
-                      <button
-                        className="button button-small button-primary"
-                        onClick={() => setEditingTech(t)}
-                      >
-                        View & Edit
-                      </button>
+                      {t.hasProfile === false ? (
+                        <button
+                          className="button button-small button-primary"
+                          onClick={() => setConfiguringUser(t)}
+                        >
+                          Add Technician Profile
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            className="button button-small button-outline"
+                            onClick={() =>
+                              perform(
+                                `/technicians/${t.id}/availability`,
+                                "PATCH",
+                                { availability: t.availability === "AVAILABLE" ? "BUSY" : "AVAILABLE" },
+                                `Updated availability for ${t.username || t.fullName || "technician"}`
+                              )
+                            }
+                          >
+                            Toggle {t.availability === "AVAILABLE" ? "Busy" : "Available"}
+                          </button>
+                          <button
+                            className="button button-small button-primary"
+                            onClick={() => setEditingTech(t)}
+                          >
+                            View & Edit
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>

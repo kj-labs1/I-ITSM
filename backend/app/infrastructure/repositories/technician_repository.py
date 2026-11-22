@@ -20,8 +20,8 @@ from sqlalchemy.orm import selectinload
 from app.application.interfaces.repositories import TechnicianRepository
 from app.domain.technician.skill import TechnicianSkill
 from app.domain.technician.technician import Technician
-from app.infrastructure.database.models import TechnicianModel, TechnicianSkillModel
-from app.shared.enums import AvailabilityStatus
+from app.infrastructure.database.models import TechnicianModel, TechnicianSkillModel, UserModel
+from app.shared.enums import AvailabilityStatus, UserRole
 
 logger = logging.getLogger(__name__)
 
@@ -112,19 +112,54 @@ class SQLAlchemyTechnicianRepository(TechnicianRepository):
         return self._to_domain(model) if model else None
 
     async def list_all(self, skip: int = 0, limit: int = 100) -> list[Technician]:
-        stmt = (
+        # 1. Fetch configured technicians (eager loading skills and user)
+        tech_stmt = (
             select(TechnicianModel)
             .options(
                 selectinload(TechnicianModel.skills),
                 selectinload(TechnicianModel.user),
             )
             .order_by(TechnicianModel.created_at.asc())
-            .offset(skip)
-            .limit(limit)
         )
-        result = await self._session.execute(stmt)
-        models = result.scalars().unique().all()
-        return [self._to_domain(m) for m in models]
+        tech_result = await self._session.execute(tech_stmt)
+        configured_techs = [self._to_domain(m) for m in tech_result.scalars().unique().all()]
+
+        # 2. Fetch users with role TECHNICIAN who do NOT have a technician profile yet
+        configured_user_ids = {t.user_id for t in configured_techs}
+        unconfigured_stmt = (
+            select(UserModel)
+            .where(
+                UserModel.role == UserRole.TECHNICIAN,
+                UserModel.id.not_in(select(TechnicianModel.user_id)),
+            )
+            .order_by(UserModel.created_at.asc())
+        )
+        unconf_result = await self._session.execute(unconfigured_stmt)
+        unconfigured_users = unconf_result.scalars().all()
+
+        unconfigured_techs = [
+            Technician(
+                user_id=u.id,
+                _availability=AvailabilityStatus.AVAILABLE,
+                _skills=[],
+                experience_years=0,
+                max_capacity=10,
+                _active_incident_count=0,
+                id=None,
+                created_at=u.created_at,
+                updated_at=u.updated_at,
+                username=u.username,
+                full_name=u.full_name,
+                email=u.email,
+                has_profile=False,
+            )
+            for u in unconfigured_users
+            if u.id not in configured_user_ids
+        ]
+
+        # Combine configured technicians + unconfigured technician users, apply pagination
+        all_techs = configured_techs + unconfigured_techs
+        return all_techs[skip : skip + limit]
 
     async def list_available(self) -> list[Technician]:
         stmt = (

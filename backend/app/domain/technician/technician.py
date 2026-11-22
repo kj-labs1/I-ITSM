@@ -47,6 +47,7 @@ class Technician:
         username: str | None = None,
         full_name: str | None = None,
         email: str | None = None,
+        has_profile: bool = True,
     ) -> None:
         """Initialize a technician entity and enforce domain invariants."""
         if experience_years < 0:
@@ -60,13 +61,14 @@ class Technician:
         self._experience_years = experience_years
         self._max_capacity = max_capacity
         self._active_incident_count = _active_incident_count
-        self.id = id if id is not None else uuid4()
+        self.id = id if (id is not None or not has_profile) else uuid4()
         now = datetime.now(UTC)
         self.created_at = created_at if created_at is not None else now
         self.updated_at = updated_at if updated_at is not None else now
         self._username = username
         self._full_name = full_name
         self._email = email
+        self.has_profile = has_profile
 
     @property
     def username(self) -> str | None:
