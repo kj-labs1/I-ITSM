@@ -139,11 +139,11 @@ Running `python seed_demo_data.py` (or `docker compose exec backend python seed_
 
 | Username | Password | Role | Description | Assigned Skills |
 |---|---|---|---|---|
-| `sysadmin` | `SysAdmin@123` | `ADMIN` | System Administrator (Full access) | N/A |
-| `admin_user` | `AdminUser@123` | `ADMIN` | Secondary Operations Administrator | N/A |
-| `emp_bob` | `EmpBob@123` | `EMPLOYEE` | Standard Employee (Reports & tracks incidents) | N/A |
-| `tech_alice` | `TechAlice@123` | `TECHNICIAN` | Senior Specialist | `NETWORK`, `SECURITY`, `CLOUD` |
-| `tech_charlie` | `TechCharlie@123` | `TECHNICIAN` | Endpoint & Software Specialist | `HARDWARE`, `SOFTWARE`, `APPLICATION` |
+| `sysadmin` | `AdminPassword123!` | `ADMIN` | System Administrator (Full access) | N/A |
+| `admin_user` | `AdminPassword123!` | `ADMIN` | Secondary Operations Administrator | N/A |
+| `emp_bob` | `EmpPasswrod123!` | `EMPLOYEE` | Standard Employee (Reports & tracks incidents) | N/A |
+| `tech_alice` | `TechPassword123!` | `TECHNICIAN` | Senior Specialist | `NETWORK`, `SECURITY`, `CLOUD` |
+| `tech_charlie` | `TechPassword123!` | `TECHNICIAN` | Endpoint & Software Specialist | `HARDWARE`, `SOFTWARE`, `APPLICATION` |
 
 ---
 
