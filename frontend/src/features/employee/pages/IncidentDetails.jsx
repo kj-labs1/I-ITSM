@@ -10,6 +10,12 @@ import DuplicateSuggestions from "../components/DuplicateSuggestions";
 import ResolutionPanel from "../components/ResolutionPanel";
 
 import { formatDate } from "../utils/incidentHelpers";
+import {
+    GitMergeIcon,
+    SparklesIcon,
+    CheckIcon,
+    XIcon,
+} from "../../../components/Icons";
 
 export default function IncidentDetails({
     apiClient,
@@ -246,8 +252,9 @@ export default function IncidentDetails({
 
             {incident.mergedIntoIncidentId && (
                 <div style={{ padding: "14px 18px", backgroundColor: "#fbefff", border: "1px solid #d8b9ff", borderRadius: "6px", margin: "16px 0", color: "#54249a", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                        <strong>🔗 This incident was MERGED into primary incident:</strong> <code>{incident.mergedIntoIncidentId}</code>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                        <GitMergeIcon size={18} color="#9333ea" />
+                        <strong>This incident was MERGED into primary incident:</strong> <code>{incident.mergedIntoIncidentId}</code>
                     </div>
                     <button
                         type="button"
@@ -356,8 +363,13 @@ export default function IncidentDetails({
                             className="employee-button employee-button-primary"
                             disabled={recLoading || assigning}
                             onClick={fetchRecommendations}
+                            style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
                         >
-                            {recLoading ? "Analyzing candidates..." : "⚡ Get Smart Recommendations"}
+                            {recLoading ? "Analyzing candidates..." : (
+                                <>
+                                    <SparklesIcon size={16} /> Get Smart Recommendations
+                                </>
+                            )}
                         </button>
                     </div>
 
@@ -421,8 +433,26 @@ export default function IncidentDetails({
                                                         )}
                                                     </td>
                                                     <td>{rec.score?.toFixed(2)}</td>
-                                                    <td>{rec.skillMatch ? "✓ Yes" : "✗ No"}</td>
-                                                    <td>{rec.isLlmEnhanced ? "✨ Yes" : "No"}</td>
+                                                    <td>
+                                                        {rec.skillMatch ? (
+                                                            <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", color: "#16a34a", fontWeight: "600" }}>
+                                                                <CheckIcon size={14} strokeWidth={2.5} /> Yes
+                                                            </span>
+                                                        ) : (
+                                                            <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", color: "#dc2626" }}>
+                                                                <XIcon size={14} strokeWidth={2.5} /> No
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td>
+                                                        {rec.isLlmEnhanced ? (
+                                                            <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", color: "#7c3aed", fontWeight: "600" }}>
+                                                                <SparklesIcon size={14} /> Yes
+                                                            </span>
+                                                        ) : (
+                                                            "No"
+                                                        )}
+                                                    </td>
                                                     <td style={{ fontSize: "13px" }}>{rec.explanation}</td>
                                                     <td>
                                                         <button

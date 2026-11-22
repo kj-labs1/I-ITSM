@@ -6,6 +6,23 @@ import {
   IncidentDetails,
 } from "./features/employee";
 import { extractErrorMessage } from "./utils/errorHandler";
+import {
+  BellIcon,
+  LayoutDashboardIcon,
+  TicketIcon,
+  PlusCircleIcon,
+  WrenchIcon,
+  ClockIcon,
+  ScrollTextIcon,
+  UsersIcon,
+  ServerIcon,
+  TagsIcon,
+  XIcon,
+  AlertTriangleIcon,
+  AlertOctagonIcon,
+  ZapIcon,
+  getNotificationSvg,
+} from "./components/Icons";
 
 const API = "http://127.0.0.1:8000/api/v1";
 
@@ -287,24 +304,7 @@ function App() {
   }
 
   function getNotificationIcon(type) {
-    switch (type) {
-      case "SLA_BREACHED":
-        return "🚨";
-      case "SLA_WARNING":
-        return "⚠️";
-      case "INCIDENT_ASSIGNED":
-        return "🛠️";
-      case "INCIDENT_CREATED":
-        return "📝";
-      case "STATUS_CHANGED":
-        return "🔄";
-      case "COMMENT_ADDED":
-        return "💬";
-      case "AVAILABILITY_CHANGED":
-        return "⏱️";
-      default:
-        return "ℹ️";
-    }
+    return getNotificationSvg(type, 20);
   }
 
   useEffect(() => {
@@ -413,29 +413,29 @@ function App() {
   const pages = [
     ...(isAdmin
       ? [
-          { id: "dashboard", label: "Dashboard", symbol: "▦" },
-          { id: "my-incidents", label: "Incident Management", symbol: "☷" },
-          { id: "report-incident", label: "Report Incident", symbol: "✚" },
-          { id: "technicians", label: "Technicians", symbol: "🛠" },
-          { id: "sla", label: "SLA Tracking", symbol: "⏱" },
-          { id: "audit", label: "Audit Logs", symbol: "📜" },
-          { id: "users", label: "Users", symbol: "♙" },
-          { id: "services", label: "Services", symbol: "▣" },
-          { id: "categories", label: "Categories", symbol: "≡" },
+          { id: "dashboard", label: "Dashboard", symbol: <LayoutDashboardIcon size={18} /> },
+          { id: "my-incidents", label: "Incident Management", symbol: <TicketIcon size={18} /> },
+          { id: "report-incident", label: "Report Incident", symbol: <PlusCircleIcon size={18} /> },
+          { id: "technicians", label: "Technicians", symbol: <WrenchIcon size={18} /> },
+          { id: "sla", label: "SLA Tracking", symbol: <ClockIcon size={18} /> },
+          { id: "audit", label: "Audit Logs", symbol: <ScrollTextIcon size={18} /> },
+          { id: "users", label: "Users", symbol: <UsersIcon size={18} /> },
+          { id: "services", label: "Services", symbol: <ServerIcon size={18} /> },
+          { id: "categories", label: "Categories", symbol: <TagsIcon size={18} /> },
         ]
       : isTechnician
         ? [
-            { id: "dashboard", label: "Dashboard", symbol: "▦" },
-            { id: "my-incidents", label: "Assigned Incidents", symbol: "☷" },
-            { id: "services", label: "Services", symbol: "▣" },
-            { id: "categories", label: "Categories", symbol: "≡" },
+            { id: "dashboard", label: "Dashboard", symbol: <LayoutDashboardIcon size={18} /> },
+            { id: "my-incidents", label: "Assigned Incidents", symbol: <TicketIcon size={18} /> },
+            { id: "services", label: "Services", symbol: <ServerIcon size={18} /> },
+            { id: "categories", label: "Categories", symbol: <TagsIcon size={18} /> },
           ]
         : [
-            { id: "dashboard", label: "Dashboard", symbol: "▦" },
-            { id: "my-incidents", label: "My Incidents", symbol: "☷" },
-            { id: "report-incident", label: "Report Incident", symbol: "✚" },
-            { id: "services", label: "Services", symbol: "▣" },
-            { id: "categories", label: "Categories", symbol: "≡" },
+            { id: "dashboard", label: "Dashboard", symbol: <LayoutDashboardIcon size={18} /> },
+            { id: "my-incidents", label: "My Incidents", symbol: <TicketIcon size={18} /> },
+            { id: "report-incident", label: "Report Incident", symbol: <PlusCircleIcon size={18} /> },
+            { id: "services", label: "Services", symbol: <ServerIcon size={18} /> },
+            { id: "categories", label: "Categories", symbol: <TagsIcon size={18} /> },
           ]),
   ];
 
@@ -459,7 +459,7 @@ function App() {
               onClick={() => setShowNotificationsDropdown((prev) => !prev)}
               aria-label="Notifications"
             >
-              🔔
+              <BellIcon size={19} />
               {unreadCount > 0 && (
                 <span className="notification-badge">{unreadCount}</span>
               )}
@@ -756,9 +756,9 @@ function App() {
             <div
               key={toast.id}
               className={`toast-card ${
-                toast.type === "SLA_BREACHED"
+                toast.type === "SLA_BREACHED" || toast.type === "ESCALATION"
                   ? "breach"
-                  : toast.type === "SLA_WARNING"
+                  : toast.type === "SLA_WARNING" || toast.type === "WORKLOAD_WARNING"
                   ? "warning"
                   : ""
               }`}
@@ -789,8 +789,9 @@ function App() {
                 type="button"
                 className="toast-close-btn"
                 onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
+                aria-label="Close"
               >
-                ✕
+                <XIcon size={14} />
               </button>
             </div>
           ))}
@@ -1470,9 +1471,10 @@ function EditTechnicianModal({ technician, onClose, perform }) {
             type="button"
             className="button button-small button-outline"
             onClick={onClose}
-            style={{ fontSize: "16px", padding: "2px 8px" }}
+            style={{ fontSize: "16px", padding: "2px 8px", display: "inline-flex", alignItems: "center" }}
+            aria-label="Close"
           >
-            ✕
+            <XIcon size={14} />
           </button>
         </div>
 
@@ -1850,8 +1852,9 @@ function SLAPage({ slaData, perform }) {
             onClick={() =>
               perform("/sla/check", "POST", {}, "SLA check evaluated across all active incidents.")
             }
+            style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
           >
-            ⚡ Run SLA Evaluation Sweep
+            <ZapIcon size={16} /> Run SLA Evaluation Sweep
           </button>
         </div>
         <div className="table-wrap">
@@ -2174,7 +2177,9 @@ function TechnicianDashboard({ apiClient, currentUser, onOpenIncident, onNavigat
           {criticalActive.map((inc) => (
             <div key={inc.id} className="warning-card critical">
               <div className="warning-card-content">
-                <strong>🚨 Critical Priority Incident (P1) Assigned</strong>
+                <strong style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                  <AlertOctagonIcon size={18} color="#dc2626" /> Critical Priority Incident (P1) Assigned
+                </strong>
                 <p>
                   Incident <strong>{inc.incidentCode || inc.id}</strong> ({inc.category}) is in <strong>{inc.status}</strong> status. Immediate response required to avoid SLA breach!
                 </p>
@@ -2192,7 +2197,9 @@ function TechnicianDashboard({ apiClient, currentUser, onOpenIncident, onNavigat
           {highActive.map((inc) => (
             <div key={inc.id} className="warning-card">
               <div className="warning-card-content">
-                <strong>⚠️ High Priority Incident (P2) Active</strong>
+                <strong style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                  <AlertTriangleIcon size={18} color="#d97706" /> High Priority Incident (P2) Active
+                </strong>
                 <p>
                   Incident <strong>{inc.incidentCode || inc.id}</strong> ({inc.category}) is in <strong>{inc.status}</strong> status.
                 </p>
@@ -2210,7 +2217,9 @@ function TechnicianDashboard({ apiClient, currentUser, onOpenIncident, onNavigat
           {isNearCapacity && (
             <div className="warning-card">
               <div className="warning-card-content">
-                <strong>⚠️ Workload Capacity Warning</strong>
+                <strong style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                  <AlertTriangleIcon size={18} color="#d97706" /> Workload Capacity Warning
+                </strong>
                 <p>
                   You are currently handling <strong>{activeIncidents.length}</strong> active incidents, reaching your configured capacity of <strong>{techProfile.maxCapacity}</strong>.
                 </p>

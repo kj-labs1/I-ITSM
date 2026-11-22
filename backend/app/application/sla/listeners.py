@@ -25,9 +25,18 @@ from app.application.interfaces.event_publisher import EventListener
 from app.application.sla.audit_service import AuditService
 from app.application.sla.notification_service import NotificationService
 from app.application.sla.sla_service import SLAService
-from app.domain.assignment.events import DomainEvent, IncidentAssignedEvent
+from app.domain.assignment.events import (
+    DomainEvent,
+    IncidentAssignedEvent,
+    TechnicianWorkloadWarningEvent,
+)
 from app.domain.sla.enums import AuditAction, NotificationChannel, NotificationType
-from app.domain.sla.events import SLABreachedEvent, SLAMetEvent, SLAWarningEvent
+from app.domain.sla.events import (
+    SLABreachedEvent,
+    SLAEscalationEvent,
+    SLAMetEvent,
+    SLAWarningEvent,
+)
 from app.shared.enums import IncidentStatus, Priority
 
 logger = logging.getLogger(__name__)
@@ -84,10 +93,24 @@ class AuditEventListener(EventListener):
                 f"SLA breached for {event.priority.value} incident "
                 f"by {event.overdue_minutes:.1f} min (type={event.breach_type})."
             )
+        elif isinstance(event, SLAEscalationEvent):
+            action = AuditAction.SLA_ESCALATED.value
+            new_value = f"ESCALATED_L{event.escalation_level}"
+            details = (
+                f"SLA Level {event.escalation_level} escalation triggered for {event.priority.value} incident "
+                f"(overdue by {event.overdue_minutes:.1f} min, type={event.breach_type})."
+            )
         elif isinstance(event, SLAMetEvent):
             action = AuditAction.SLA_MET.value
             new_value = "MET"
             details = f"Incident resolved within {event.priority.value} SLA targets."
+        elif isinstance(event, TechnicianWorkloadWarningEvent) or event_name == "TechnicianWorkloadWarningEvent":
+            action = AuditAction.DOMAIN_EVENT.value
+            tech_id = getattr(event, "technician_id", None)
+            active = getattr(event, "active_incidents", 0)
+            max_c = getattr(event, "max_capacity", 5)
+            new_value = f"{active}/{max_c}"
+            details = f"Technician {tech_id} reached capacity threshold ({active}/{max_c} active incidents)."
         elif event_name == "IncidentCreatedEvent":
             action = AuditAction.INCIDENT_CREATED.value
             priority = getattr(event, "priority", Priority.P3)
@@ -186,6 +209,7 @@ class NotificationEventListener(EventListener):
                 incident_id = event.incident_id
                 code = getattr(event, "incident_code", "")
                 reporter_id = getattr(event, "reporter_id", None)
+                prev_tech_id = getattr(event, "previous_technician_id", None)
                 if not code or reporter_id is None:
                     code_res, rep_res, _ = await self._resolve_incident(incident_id)
                     code = code or code_res
@@ -212,6 +236,16 @@ class NotificationEventListener(EventListener):
                         channel=NotificationChannel.IN_APP,
                         title="Incident Assigned",
                         message=f"Your incident {code or incident_id} has been assigned to a technician.",
+                    )
+                # If reassigned from a previous technician, notify them
+                if prev_tech_id and prev_tech_id != event.technician_id:
+                    await notif_service.send_notification(
+                        user_id=prev_tech_id,
+                        incident_id=incident_id,
+                        notification_type=NotificationType.INCIDENT_ASSIGNED,
+                        channel=NotificationChannel.IN_APP,
+                        title="Incident Reassigned",
+                        message=f"Incident {code or incident_id} has been reassigned to another technician.",
                     )
 
             elif isinstance(event, SLAWarningEvent):
@@ -264,13 +298,28 @@ class NotificationEventListener(EventListener):
                         user_id=DEFAULT_ESCALATION_USER_ID,
                         incident_id=event.incident_id,
                         notification_type=NotificationType.ESCALATION,
-                        channel=NotificationChannel.EMAIL,
+                        channel=NotificationChannel.IN_APP,
                         title=f"SLA Escalation Alert ({event.priority.value})",
                         message=(
                             f"Escalation triggered for breached incident {code or event.incident_id} "
-                            f"({event.breach_type} SLA overdue by {event.overdue_minutes:.1f} min)."
+                            f"({event.breach_type} SLA overdue by {event.overdue_minutes:.1f} min). Immediate intervention required."
                         ),
                     )
+
+            elif isinstance(event, SLAEscalationEvent):
+                code, _, _ = await self._resolve_incident(event.incident_id)
+                recipient = event.recipient_user_id or DEFAULT_ESCALATION_USER_ID
+                await notif_service.send_notification(
+                    user_id=recipient,
+                    incident_id=event.incident_id,
+                    notification_type=NotificationType.ESCALATION,
+                    channel=NotificationChannel.IN_APP,
+                    title=f"SLA Escalation Alert - Level {event.escalation_level} ({event.priority.value})",
+                    message=(
+                        f"Incident {code or event.incident_id} has exceeded its {event.breach_type} SLA "
+                        f"and requires Level {event.escalation_level} escalation ({event.overdue_minutes:.1f} min overdue)."
+                    ),
+                )
 
             elif event_name == "IncidentStatusChangedEvent":
                 incident_id = getattr(event, "incident_id", None)
@@ -299,17 +348,33 @@ class NotificationEventListener(EventListener):
                         if assigned_tech_id:
                             status_recipients.add(assigned_tech_id)
 
+                    if status_val == IncidentStatus.ACKNOWLEDGED.value:
+                        s_title = "Incident Acknowledged"
+                        s_msg = f"Incident {code or incident_id} has been acknowledged by the assigned technician."
+                    elif status_val == IncidentStatus.IN_PROGRESS.value:
+                        s_title = "Incident In Progress"
+                        s_msg = f"Work has started on incident {code or incident_id}."
+                    elif status_val == IncidentStatus.RESOLVED.value:
+                        s_title = "Incident Resolved"
+                        s_msg = f"Incident {code or incident_id} has been marked as resolved."
+                    elif status_val == IncidentStatus.CLOSED.value:
+                        s_title = "Incident Closed"
+                        s_msg = f"Incident {code or incident_id} has been closed."
+                    elif status_val == "REOPENED":
+                        s_title = "Incident Reopened"
+                        s_msg = f"Incident {code or incident_id} has been reopened."
+                    else:
+                        s_title = "Incident Status Updated"
+                        s_msg = f"Incident {code or incident_id} moved to {status_val}."
+
                     for r_id in status_recipients:
                         await notif_service.send_notification(
                             user_id=r_id,
                             incident_id=incident_id,
                             notification_type=NotificationType.STATUS_CHANGED,
                             channel=NotificationChannel.IN_APP,
-                            title="Incident Status Updated",
-                            message=(
-                                f"Incident {code or incident_id} "
-                                f"moved to {status_val}."
-                            ),
+                            title=s_title,
+                            message=s_msg,
                         )
 
             elif event_name == "PriorityChangedEvent":
@@ -385,6 +450,102 @@ class NotificationEventListener(EventListener):
                         title="Availability Status Updated",
                         message=f"Your availability status is now {new_status}.",
                     )
+
+            elif isinstance(event, TechnicianWorkloadWarningEvent) or event_name == "TechnicianWorkloadWarningEvent":
+                tech_id = getattr(event, "technician_id", None)
+                active = getattr(event, "active_incidents", 0)
+                max_c = getattr(event, "max_capacity", 5)
+                if tech_id:
+                    await notif_service.send_notification(
+                        user_id=tech_id,
+                        incident_id=None,
+                        notification_type=NotificationType.WORKLOAD_WARNING,
+                        channel=NotificationChannel.IN_APP,
+                        title="Workload Capacity Warning",
+                        message=(
+                            f"You have reached maximum active capacity ({active}/{max_c} incidents). "
+                            "New automated assignments will be paused until existing tickets are resolved."
+                        ),
+                    )
+
+            elif event_name == "IncidentArchivedEvent":
+                incident_id = getattr(event, "incident_id", None)
+                code = getattr(event, "incident_code", "")
+                actor_id = getattr(event, "actor_id", None)
+
+                if incident_id:
+                    if not code:
+                        code_res, rep_res, tech_res = await self._resolve_incident(incident_id)
+                        code = code or code_res
+                    else:
+                        _, rep_res, tech_res = await self._resolve_incident(incident_id)
+
+                    archive_recipients: set[UUID] = set()
+                    if rep_res and rep_res != actor_id:
+                        archive_recipients.add(rep_res)
+                    if tech_res and tech_res != actor_id:
+                        archive_recipients.add(tech_res)
+
+                    for r_id in archive_recipients:
+                        await notif_service.send_notification(
+                            user_id=r_id,
+                            incident_id=incident_id,
+                            notification_type=NotificationType.INCIDENT_ARCHIVED,
+                            channel=NotificationChannel.IN_APP,
+                            title="Incident Archived",
+                            message=f"Incident {code or incident_id} has been archived by an administrator.",
+                        )
+
+            elif event_name == "IncidentMergedEvent":
+                incident_id = getattr(event, "incident_id", None)
+                code = getattr(event, "incident_code", "")
+                primary_code = getattr(event, "primary_incident_code", "")
+                actor_id = getattr(event, "actor_id", None)
+
+                if incident_id:
+                    _, rep_res, tech_res = await self._resolve_incident(incident_id)
+
+                    merge_recipients: set[UUID] = set()
+                    if rep_res and rep_res != actor_id:
+                        merge_recipients.add(rep_res)
+                    if tech_res and tech_res != actor_id:
+                        merge_recipients.add(tech_res)
+
+                    for r_id in merge_recipients:
+                        await notif_service.send_notification(
+                            user_id=r_id,
+                            incident_id=incident_id,
+                            notification_type=NotificationType.INCIDENT_MERGED,
+                            channel=NotificationChannel.IN_APP,
+                            title="Incident Merged",
+                            message=(
+                                f"Incident {code or incident_id} has been merged into "
+                                f"primary incident {primary_code or 'another incident'}."
+                            ),
+                        )
+
+            elif isinstance(event, SLAMetEvent):
+                incident_id = getattr(event, "incident_id", None)
+                if incident_id:
+                    code, reporter_id, tech_id = await self._resolve_incident(incident_id)
+                    met_recipients: set[UUID] = set()
+                    if reporter_id:
+                        met_recipients.add(reporter_id)
+                    if tech_id:
+                        met_recipients.add(tech_id)
+
+                    for r_id in met_recipients:
+                        await notif_service.send_notification(
+                            user_id=r_id,
+                            incident_id=incident_id,
+                            notification_type=NotificationType.SLA_MET,
+                            channel=NotificationChannel.IN_APP,
+                            title="Incident Resolved Within SLA",
+                            message=(
+                                f"Incident {code or incident_id} has been resolved "
+                                f"within the {event.priority.value} SLA targets."
+                            ),
+                        )
 
 
 class SLALifecycleEventListener(EventListener):

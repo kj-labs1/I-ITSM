@@ -47,6 +47,7 @@ class IncidentAssignedEvent(DomainEvent):
     explanation: str = ""
     incident_code: str = ""
     reporter_id: UUID | None = None
+    previous_technician_id: UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -56,3 +57,12 @@ class TechnicianAvailabilityChangedEvent(DomainEvent):
     technician_id: UUID = field(default_factory=uuid4)
     previous_status: str = ""
     new_status: str = ""
+
+
+@dataclass(frozen=True)
+class TechnicianWorkloadWarningEvent(DomainEvent):
+    """Published when a technician's active workload approaches maximum capacity."""
+
+    technician_id: UUID = field(default_factory=uuid4)
+    active_incidents: int = 0
+    max_capacity: int = 5

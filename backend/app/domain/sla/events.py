@@ -49,3 +49,16 @@ class SLAMetEvent(DomainEvent):
     incident_id: UUID = field(default_factory=uuid4)
     priority: Priority = Priority.P3
     resolved_at: datetime | None = None
+
+
+@dataclass(frozen=True)
+class SLAEscalationEvent(DomainEvent):
+    """Published when an SLA breach triggers managerial escalation."""
+
+    incident_id: UUID = field(default_factory=uuid4)
+    priority: Priority = Priority.P3
+    breach_type: str = "RESOLUTION"  # "RESPONSE", "RESOLUTION", or "BOTH"
+    due_at: datetime | None = None
+    overdue_minutes: float = 0.0
+    escalation_level: int = 1
+    recipient_user_id: UUID | None = None

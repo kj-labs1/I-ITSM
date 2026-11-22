@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { CheckIcon } from "../../../components/Icons";
 
 import useIncidents from "../hooks/useIncidents";
 
@@ -149,7 +150,7 @@ export default function ReportIncident({
             <main className="employee-page">
                 <div className="employee-success-panel">
                     <div className="employee-success-icon">
-                        ✓
+                        <CheckIcon size={28} strokeWidth={2.5} color="#16a34a" />
                     </div>
 
                     <h1>Incident reported successfully</h1>

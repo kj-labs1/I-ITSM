@@ -1,4 +1,5 @@
 import React from "react";
+import { CheckIcon } from "../../../components/Icons";
 
 import {
     INCIDENT_STATUSES,
@@ -27,7 +28,7 @@ export default function IncidentStatusTimeline({
                         } ${current ? "is-current" : ""}`}
                     >
                         <div className="employee-timeline-marker">
-                            {completed ? "✓" : index + 1}
+                            {completed ? <CheckIcon size={14} strokeWidth={2.5} /> : index + 1}
                         </div>
 
                         <div className="employee-timeline-label">

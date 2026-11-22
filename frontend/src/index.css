@@ -135,8 +135,12 @@ button {
   color: #245294;
 }
 .nav-symbol {
-  font-size: 19px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 20px;
+  height: 20px;
+  flex-shrink: 0;
   text-align: center;
 }
 .sidebar-footer {

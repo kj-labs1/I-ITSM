@@ -1,4 +1,10 @@
 import React, { useState } from "react";
+import {
+    CheckIcon,
+    CheckCircle2Icon,
+    PlayIcon,
+    LockIcon,
+} from "../../../components/Icons";
 
 export default function ResolutionPanel({
     incident,
@@ -61,8 +67,13 @@ export default function ResolutionPanel({
                                 disabled={saving}
                                 className="employee-button employee-button-primary"
                                 onClick={() => handleAction("ACKNOWLEDGED")}
+                                style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
                             >
-                                {saving ? "Acknowledging..." : "✓ Acknowledge Incident"}
+                                {saving ? "Acknowledging..." : (
+                                    <>
+                                        <CheckIcon size={16} strokeWidth={2.5} /> Acknowledge Incident
+                                    </>
+                                )}
                             </button>
                         </div>
                     )}
@@ -77,8 +88,13 @@ export default function ResolutionPanel({
                                 disabled={saving}
                                 className="employee-button employee-button-primary"
                                 onClick={() => handleAction("IN_PROGRESS")}
+                                style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
                             >
-                                {saving ? "Starting..." : "▶ Start Work (In Progress)"}
+                                {saving ? "Starting..." : (
+                                    <>
+                                        <PlayIcon size={14} /> Start Work (In Progress)
+                                    </>
+                                )}
                             </button>
                         </div>
                     )}
@@ -102,8 +118,13 @@ export default function ResolutionPanel({
                                     disabled={saving || !resolutionText.trim()}
                                     className="employee-button employee-button-primary"
                                     onClick={() => handleAction("RESOLVED", { resolutionDetails: resolutionText })}
+                                    style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
                                 >
-                                    {saving ? "Resolving..." : "✔ Mark Incident as Resolved"}
+                                    {saving ? "Resolving..." : (
+                                        <>
+                                            <CheckCircle2Icon size={16} /> Mark Incident as Resolved
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </div>
@@ -130,8 +151,13 @@ export default function ResolutionPanel({
                                 disabled={saving}
                                 className="employee-button employee-button-primary"
                                 onClick={() => handleAction("VERIFIED")}
+                                style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
                             >
-                                {saving ? "Verifying..." : "✓ Verify Resolution"}
+                                {saving ? "Verifying..." : (
+                                    <>
+                                        <CheckIcon size={16} strokeWidth={2.5} /> Verify Resolution
+                                    </>
+                                )}
                             </button>
                         </div>
                     )}
@@ -146,15 +172,20 @@ export default function ResolutionPanel({
                                 disabled={saving}
                                 className="employee-button employee-button-primary"
                                 onClick={() => handleAction("CLOSED")}
+                                style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
                             >
-                                {saving ? "Closing..." : "🔒 Close Incident"}
+                                {saving ? "Closing..." : (
+                                    <>
+                                        <LockIcon size={16} /> Close Incident
+                                    </>
+                                )}
                             </button>
                         </div>
                     )}
 
                     {status === "CLOSED" && (
-                        <p className="employee-success" style={{ color: "#1a7f37", fontWeight: 600 }}>
-                            ✔ This incident has been successfully closed and archived.
+                        <p className="employee-success" style={{ color: "#1a7f37", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                            <CheckCircle2Icon size={18} color="#16a34a" /> This incident has been successfully closed and archived.
                         </p>
                     )}
 

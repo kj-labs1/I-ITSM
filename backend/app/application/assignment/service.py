@@ -33,7 +33,10 @@ from app.core.exceptions import (
     TechnicianNotFoundError,
     TechnicianUnavailableError,
 )
-from app.domain.assignment.events import IncidentAssignedEvent
+from app.domain.assignment.events import (
+    IncidentAssignedEvent,
+    TechnicianWorkloadWarningEvent,
+)
 from app.domain.assignment.strategy import (
     AssignmentContext,
     AssignmentResult,
@@ -328,6 +331,16 @@ class TechnicianAssignmentService:
             )
             if not success:
                 raise InvalidAssignmentError("Incident service rejected assignment operation.")
+
+            # Publish workload warning if technician is now at capacity
+            if active_count + 1 >= tech.max_capacity:
+                await self.event_publisher.publish(
+                    TechnicianWorkloadWarningEvent(
+                        technician_id=tech.user_id,
+                        active_incidents=active_count + 1,
+                        max_capacity=tech.max_capacity,
+                    )
+                )
 
         # Step 4: Observer Pattern — Publish IncidentAssignedEvent for Member 4
         assigned_event = IncidentAssignedEvent(

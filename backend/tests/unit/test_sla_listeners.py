@@ -32,14 +32,23 @@ from app.domain.assignment.events import (
     DomainEvent,
     IncidentAssignedEvent,
     TechnicianAvailabilityChangedEvent,
+    TechnicianWorkloadWarningEvent,
 )
 from app.domain.incident.events import (
+    IncidentArchivedEvent,
     IncidentCommentAddedEvent,
     IncidentCreatedEvent,
+    IncidentMergedEvent,
+    PriorityChangedEvent,
 )
 from app.domain.sla.audit import AuditLogEntry
 from app.domain.sla.enums import AuditAction, NotificationType, SLAStatus
-from app.domain.sla.events import SLABreachedEvent, SLAWarningEvent
+from app.domain.sla.events import (
+    SLABreachedEvent,
+    SLAEscalationEvent,
+    SLAMetEvent,
+    SLAWarningEvent,
+)
 from app.domain.sla.notification import Notification
 from app.domain.sla.policy import SLAPolicy
 from app.domain.sla.tracking import IncidentSLATracking
@@ -363,3 +372,167 @@ async def test_incident_lifecycle_and_comment_notifications() -> None:
     assert len(tech_notifs_updated) == 2
     types = {n.notification_type for n in tech_notifs_updated}
     assert NotificationType.AVAILABILITY_CHANGED in types
+
+
+@pytest.mark.asyncio
+async def test_sla_escalation_event_and_workload_warning() -> None:
+    bus = InProcessEventBus()
+    audit_repo = InMemoryAuditRepo()
+    notif_repo = InMemoryNotificationRepo()
+    audit_service = AuditService(audit_repo)
+    notif_service = NotificationService(notif_repo)
+
+    @asynccontextmanager
+    async def audit_ctx():
+        yield audit_service
+
+    @asynccontextmanager
+    async def notif_ctx():
+        yield notif_service
+
+    bus.subscribe(DomainEvent, AuditEventListener(audit_ctx))
+    bus.subscribe(DomainEvent, NotificationEventListener(notif_ctx))
+
+    admin_user_id = UUID("00000000-0000-0000-0000-000000000001")
+    tech_id = uuid4()
+    incident_id = uuid4()
+
+    # 1. SLAEscalationEvent -> Admin receives ESCALATION in-app notification
+    await bus.publish(
+        SLAEscalationEvent(
+            incident_id=incident_id,
+            priority=Priority.P1,
+            breach_type="RESOLUTION",
+            overdue_minutes=35.0,
+            escalation_level=2,
+            recipient_user_id=admin_user_id,
+        )
+    )
+    admin_notifs = await notif_repo.list_for_user(user_id=admin_user_id)
+    assert len(admin_notifs) == 1
+    assert admin_notifs[0].notification_type == NotificationType.ESCALATION
+    assert "Level 2" in admin_notifs[0].title
+
+    # Audit log should have SLA_ESCALATED
+    escalation_logs = [e for e in audit_repo.entries if e.action == AuditAction.SLA_ESCALATED.value]
+    assert len(escalation_logs) == 1
+    assert escalation_logs[0].new_value == "ESCALATED_L2"
+
+    # 2. TechnicianWorkloadWarningEvent -> Tech receives WORKLOAD_WARNING
+    await bus.publish(
+        TechnicianWorkloadWarningEvent(
+            technician_id=tech_id,
+            active_incidents=5,
+            max_capacity=5,
+        )
+    )
+    tech_notifs = await notif_repo.list_for_user(user_id=tech_id)
+    assert len(tech_notifs) == 1
+    assert tech_notifs[0].notification_type == NotificationType.WORKLOAD_WARNING
+    assert "5/5" in tech_notifs[0].message
+
+
+@pytest.mark.asyncio
+async def test_reassignment_and_archiving_and_met_notifications() -> None:
+    bus = InProcessEventBus()
+    audit_repo = InMemoryAuditRepo()
+    notif_repo = InMemoryNotificationRepo()
+    audit_service = AuditService(audit_repo)
+    notif_service = NotificationService(notif_repo)
+
+    @asynccontextmanager
+    async def audit_ctx():
+        yield audit_service
+
+    @asynccontextmanager
+    async def notif_ctx():
+        yield notif_service
+
+    bus.subscribe(DomainEvent, AuditEventListener(audit_ctx))
+    bus.subscribe(DomainEvent, NotificationEventListener(notif_ctx))
+
+    incident_id = uuid4()
+    reporter_id = uuid4()
+    previous_tech_id = uuid4()
+    new_tech_id = uuid4()
+
+    # 1. IncidentAssignedEvent with reassignment (previous_technician_id specified)
+    await bus.publish(
+        IncidentAssignedEvent(
+            incident_id=incident_id,
+            technician_id=new_tech_id,
+            actor_id=UUID("00000000-0000-0000-0000-000000000001"),
+            strategy_used="MANUAL",
+            explanation="Reassigned by lead",
+            incident_code="INC-2001",
+            reporter_id=reporter_id,
+            previous_technician_id=previous_tech_id,
+        )
+    )
+    # New technician notified
+    new_tech_notifs = await notif_repo.list_for_user(user_id=new_tech_id)
+    assert len(new_tech_notifs) == 1
+    assert new_tech_notifs[0].title == "New Incident Assigned"
+
+    # Previous technician notified of reassignment
+    prev_tech_notifs = await notif_repo.list_for_user(user_id=previous_tech_id)
+    assert len(prev_tech_notifs) == 1
+    assert prev_tech_notifs[0].title == "Incident Reassigned"
+
+    # Reporter notified
+    rep_notifs = await notif_repo.list_for_user(user_id=reporter_id)
+    assert len(rep_notifs) == 1
+    assert rep_notifs[0].title == "Incident Assigned"
+
+    # 2. SLAMetEvent
+    await bus.publish(
+        SLAMetEvent(
+            incident_id=incident_id,
+            priority=Priority.P1,
+        )
+    )
+    # Audit log check
+    met_logs = [e for e in audit_repo.entries if e.action == AuditAction.SLA_MET.value]
+    assert len(met_logs) == 1
+    assert met_logs[0].new_value == "MET"
+
+    # 3. IncidentArchivedEvent
+    await bus.publish(
+        IncidentArchivedEvent(
+            incident_id=incident_id,
+            incident_code="INC-2001",
+            actor_id=UUID("00000000-0000-0000-0000-000000000001"),
+        )
+    )
+    arch_logs = [e for e in audit_repo.entries if e.action == AuditAction.INCIDENT_ARCHIVED.value]
+    assert len(arch_logs) == 1
+
+    # 4. IncidentMergedEvent
+    dup_id = uuid4()
+    await bus.publish(
+        IncidentMergedEvent(
+            incident_id=dup_id,
+            incident_code="INC-2002",
+            primary_incident_id=incident_id,
+            primary_incident_code="INC-2001",
+            actor_id=UUID("00000000-0000-0000-0000-000000000001"),
+            duplicate_incident_ids=[dup_id],
+        )
+    )
+    merge_logs = [e for e in audit_repo.entries if e.action == AuditAction.INCIDENT_MERGED.value]
+    assert len(merge_logs) == 1
+
+    # 5. PriorityChangedEvent
+    await bus.publish(
+        PriorityChangedEvent(
+            incident_id=incident_id,
+            incident_code="INC-2001",
+            previous_priority=Priority.P3,
+            new_priority=Priority.P1,
+            reporter_id=reporter_id,
+            assigned_technician_id=new_tech_id,
+        )
+    )
+    prio_logs = [e for e in audit_repo.entries if e.action == AuditAction.PRIORITY_CHANGED.value]
+    assert len(prio_logs) == 1
+

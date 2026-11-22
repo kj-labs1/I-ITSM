@@ -8,6 +8,7 @@ import IncidentTable from "../components/IncidentTable";
 import {
     localDateBoundary,
 } from "../utils/incidentHelpers";
+import { AlertOctagonIcon, AlertTriangleIcon } from "../../../components/Icons";
 
 const INITIAL_FILTERS = {
     incidentCode: "",
@@ -162,7 +163,9 @@ export default function MyIncidents({
                             {criticalActive.map((inc) => (
                                 <div key={inc.id} className="warning-card critical">
                                     <div className="warning-card-content">
-                                        <strong>🚨 Critical Priority Incident (P1) Assigned</strong>
+                                        <strong style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                                            <AlertOctagonIcon size={18} color="#dc2626" /> Critical Priority Incident (P1) Assigned
+                                        </strong>
                                         <p>
                                             Incident <strong>{inc.incidentCode || inc.id}</strong> ({inc.category}) is currently in{" "}
                                             <strong>{inc.status}</strong> status. Immediate response required per SLA policy.
@@ -180,7 +183,9 @@ export default function MyIncidents({
                             {highActive.map((inc) => (
                                 <div key={inc.id} className="warning-card">
                                     <div className="warning-card-content">
-                                        <strong>⚠️ High Priority Incident (P2) Active</strong>
+                                        <strong style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                                            <AlertTriangleIcon size={18} color="#d97706" /> High Priority Incident (P2) Active
+                                        </strong>
                                         <p>
                                             Incident <strong>{inc.incidentCode || inc.id}</strong> ({inc.category}) is in{" "}
                                             <strong>{inc.status}</strong> status. Please review and ensure timely resolution.
