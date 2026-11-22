@@ -31,6 +31,11 @@ dev = [
 requires = ["setuptools>=75.0"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+exclude = ["migrations*", "tests*"]
+
 [tool.ruff]
 line-length = 110
 target-version = "py312"
@@ -44,8 +49,3 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 pythonpath = ["."]
-
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["app", "app.*"]
-exclude = ["migrations", "migrations.*", "tests", "tests.*"]
