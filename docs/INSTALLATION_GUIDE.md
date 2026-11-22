@@ -76,9 +76,11 @@ The backend reads configuration from environment variables or `backend/.env`.
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `60` | Token expiration lifespan |
 | `CORS_ORIGINS` | `["http://localhost:3000","http://localhost:5173","http://127.0.0.1:5173"]` | Allowed browser origins |
 | `LLM_PROVIDER` | `mock` | Recommendation AI provider: `mock` (offline) or `openai_compatible` |
-| `LLM_API_KEY` | `mock-key` | API key for OpenAI-compatible provider |
-| `LLM_BASE_URL` | `https://api.openai.com/v1` | Base URL for LLM provider |
-| `LLM_MODEL_NAME` | `gpt-4o-mini` | LLM model identifier |
+| `LLM_API_KEY` | `""` | API key for OpenAI-compatible provider |
+| `LLM_BASE_URL` | `https://api.openai.com/v1` | Base URL for LLM provider (or local Ollama/Groq URL) |
+| `LLM_MODEL` | `gpt-4o-mini` | LLM model identifier |
+| `LLM_ENABLED` | `false` | Enables live LLM queries during smart recommendations |
+| `LLM_TIMEOUT_SECONDS` | `30` | Timeout threshold before deterministic fallback triggers |
 
 Frontend environment variables (`frontend/.env`):
 | Variable | Default Value | Description |
