@@ -581,20 +581,26 @@ Before installing I-ITSM, ensure your host environment meets the following speci
 
 ### Option A: 1-Minute Docker Compose (Recommended)
 
-Run the entire application stack (PostgreSQL database, FastAPI backend, React frontend) with a single command:
+Run the entire application stack (PostgreSQL database, FastAPI backend, React frontend) with four quick commands:
 
 ```bash
+# 1. Clone the repository
+git clone https://github.com/kj-labs1/I-ITSM.git
+cd I-ITSM
+
+# 2. Build and launch all services in detached mode
 docker compose up --build -d
+
+# 3. Apply database migrations
+docker compose exec backend alembic upgrade head
+
+# 4. Seed demo accounts, IT services, and incident categories
+docker compose exec backend python seed_demo_data.py
 ```
 
 - **Frontend Application:** [http://localhost:5173](http://localhost:5173)
 - **Backend Swagger API Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
 - **Backend Health Check:** [http://localhost:8000/health](http://localhost:8000/health)
-
-To seed demo accounts and sample IT services inside Docker:
-```bash
-docker compose exec backend python seed_demo_data.py
-```
 
 To stop all services:
 ```bash
