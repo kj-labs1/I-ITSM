@@ -322,7 +322,10 @@ The I-ITSM platform satisfies eight primary Functional Requirements (FR), catego
     \item \textbf{FR-3.2:} The system shall automatically assign a canonical, human-readable incident code formatted as \texttt{INC-xxxxxxxx} upon creation.
     \item \textbf{FR-3.3:} The system shall enforce a strict forward-progressing lifecycle state machine:
     \[
-    \texttt{NEW} \longrightarrow \texttt{CLASSIFIED} \longrightarrow \texttt{ASSIGNED} \longrightarrow \texttt{ACKNOWLEDGED} \longrightarrow \texttt{IN\_PROGRESS} \longrightarrow \texttt{RESOLVED} \longrightarrow \texttt{VERIFIED} \longrightarrow \texttt{CLOSED}
+    \begin{aligned}
+        \texttt{NEW} &\longrightarrow \texttt{CLASSIFIED} \longrightarrow \texttt{ASSIGNED} \longrightarrow \texttt{ACKNOWLEDGED} \\
+        &\longrightarrow \texttt{IN\_PROGRESS} \longrightarrow \texttt{RESOLVED} \longrightarrow \texttt{VERIFIED} \longrightarrow \texttt{CLOSED}
+    \end{aligned}
     \]
     \item \textbf{FR-3.4:} Transitions to the \texttt{RESOLVED} state shall strictly require non-empty resolution details.
     \item \textbf{FR-3.5:} The system shall allow authorized stakeholders to append timestamped collaboration comments to any open or active incident.
@@ -605,8 +608,9 @@ Figure~\ref{fig:system_architecture} illustrates the five-tiered layered archite
 
 \begin{figure}[H]
 \centering
+\hspace*{-1.5cm}
 \begin{tikzpicture}[
-    layer/.style={rectangle, draw=primaryblue, fill=lightgray, rounded corners=3pt, text width=13cm, inner sep=8pt, align=center},
+    layer/.style={rectangle, draw=primaryblue, fill=lightgray, rounded corners=3pt, text width=15cm, inner sep=8pt, align=center},
     subnode/.style={rectangle, draw=secondaryblue!80, fill=white, rounded corners=2pt, minimum height=0.7cm, font=\footnotesize, align=center},
     arrow/.style={-{Latex[length=2.5mm]}, thick, primaryblue}
 ]
@@ -722,7 +726,7 @@ When an operational action occurs in Module 2 (e.g., incident creation), the ser
 \node[actionbox, right=1.0cm of l2] (a2) {Persist Immutable\\Audit Log Entry};
 \node[actionbox, right=1.0cm of l3] (a3) {Create In-App\\User Notification};
 
-\draw[arrow] (m2) -- node[above, font=\footnotesize] {\texttt{publish(IncidentCreated)}} (bus);
+\draw[arrow] (m2) -- node[above, yshift=0.6cm, font=\footnotesize] {\texttt{publish(IncidentCreated)}} (bus);
 \draw[arrow] (bus.east) -- ++(0.5,0) |- (l1.west);
 \draw[arrow] (bus.east) -- ++(0.5,0) -- (l2.west);
 \draw[arrow] (bus.east) -- ++(0.5,0) |- (l3.west);
@@ -798,15 +802,20 @@ Module 2 governs the core business aggregate of the platform: the incident ticke
 
 \subsection{Incident Aggregate and Database Models}
 M2 manages two core persistence entities:
+{\small\raggedright
 \begin{itemize}
-    \item \texttt{IncidentModel} (\texttt{incidents} table): Represents the canonical incident record. Fields include \texttt{id} (UUID primary key), \texttt{incident\_code} (unique \texttt{INC-xxxxxxxx}), \texttt{reporter\_id}, \texttt{service\_id}, \texttt{category}, \texttt{required\_skill}, \texttt{description}, \texttt{impact} ($1$--$5$), \texttt{urgency} ($1$--$5$), \texttt{business\_criticality} ($1$--$5$), \texttt{priority} ($P1$--$P4$), \texttt{status}, \texttt{assigned\_technician\_id}, \texttt{resolution\_details}, archiving columns (\texttt{is\_archived}, \texttt{archived\_at}, \texttt{archived\_by}), and merging columns (\texttt{merged\_into\_incident\_id}, \texttt{merged\_at}, \texttt{merged\_by}).
+    \item \texttt{IncidentModel} (\texttt{incidents} table): Represents the canonical incident record. Fields include \texttt{id} (UUID primary key), \texttt{incident\_code} (unique \texttt{INC-xxxxxxxx}), \texttt{reporter\_id}, \texttt{service\_id}, \texttt{category}, \texttt{required\_skill}, \texttt{description}, \texttt{impact} ($1$--$5$), \texttt{urgency} ($1$--$5$), \texttt{business\_criticality} ($1$--$5$), \texttt{priority} ($P1$--$P4$), \texttt{status}, \texttt{assigned\_technician\_id}, \texttt{resolution\_details}, archiving columns (\texttt{is\_archived}, \texttt{archived\_at}, \texttt{archived\_by}),\linebreak and merging columns (\texttt{merged\_into\_incident\_id}, \texttt{merged\_at}, \texttt{merged\_by}).
     \item \texttt{IncidentCommentModel} (\texttt{incident\_comments} table): Captures timestamped collaboration notes and technical logs appended by stakeholders.
 \end{itemize}
+}
 
 \subsection{Lifecycle State Machine}
 The incident entity enforces a strict forward-progressing finite state machine:
 \begin{equation}
-\texttt{NEW} \longrightarrow \texttt{CLASSIFIED} \longrightarrow \texttt{ASSIGNED} \longrightarrow \texttt{ACKNOWLEDGED} \longrightarrow \texttt{IN\_PROGRESS} \longrightarrow \texttt{RESOLVED} \longrightarrow \texttt{VERIFIED} \longrightarrow \texttt{CLOSED}
+\begin{aligned}
+    \texttt{NEW} &\longrightarrow \texttt{CLASSIFIED} \longrightarrow \texttt{ASSIGNED} \longrightarrow \texttt{ACKNOWLEDGED} \\
+    &\longrightarrow \texttt{IN\_PROGRESS} \longrightarrow \texttt{RESOLVED} \longrightarrow \texttt{VERIFIED} \longrightarrow \texttt{CLOSED}
+\end{aligned}
 \end{equation}
 
 The state machine strictly enforces business invariants:
@@ -1525,8 +1534,8 @@ In enterprise IT operations, exposing raw database primary keys (such as \texttt
 The incident creation and triage lifecycle coordinates interactions among all four system modules. Figure~\ref{fig:wf_creation_sequence} illustrates the end-to-end execution flow from initial reporting through priority scoring, event dispatching, and technician assignment.
 
 \begin{figure}[H]
-\centering
-\begin{tikzpicture}[
+\noindent\makebox[\textwidth][c]{\hspace*{-0.4cm}%
+\begin{tikzpicture}[scale=0.78, transform shape,
     node distance=1.5cm,
     font=\scriptsize,
     actor/.style={rectangle, draw=primaryblue, fill=primaryblue!10, rounded corners=2pt, minimum width=2.0cm, minimum height=0.6cm, align=center},
@@ -1565,6 +1574,7 @@ The incident creation and triage lifecycle coordinates interactions among all fo
 \draw[msg, dashed] ($(api)+(0,-5.8)$) -- node[above] {Return 201 Created (Incident DTO)} ($(user)+(0,-5.8)$);
 
 \end{tikzpicture}
+}
 \caption{End-to-End Incident Creation, Priority Calculation, and SLA Initialization Workflow}
 \label{fig:wf_creation_sequence}
 \end{figure}
@@ -1573,7 +1583,7 @@ The incident creation and triage lifecycle coordinates interactions among all fo
 \label{sec:wf_technician_progression}
 Once an incident is assigned, the assigned technician accesses their operational queue, transitions the ticket through its state machine, and registers resolution details:
 \begin{enumerate}
-    \item \textbf{Queue Retrieval:} The technician views assigned tickets via \texttt{GET /api/v1/incidents?assignedTechnicianId=me}. Active SLA countdown timers and priority badges are rendered.
+    \item \textbf{Queue Retrieval:} The technician views assigned tickets via \\ \texttt{GET /api/v1/incidents?assignedTechnicianId=me}. Active SLA countdown timers and priority badges are rendered.
     \item \textbf{Status Acknowledgment:} The technician clicks ``Acknowledge'', executing \texttt{PATCH /api/v1/incidents/\{id\}/status} with \texttt{status = "ACKNOWLEDGED"}. The system stops the initial response SLA timer and dispatches an \texttt{IncidentStatusChangedEvent}.
     \item \textbf{Investigation \& Collaboration:} The technician transitions the status to \texttt{IN\_PROGRESS} and appends technical diagnosis notes via \texttt{POST /api/v1/incidents/\{id\}/comments}.
     \item \textbf{Resolution \& Invariant Verification:} Upon resolving the defect, the technician submits resolution details and sets status to \texttt{RESOLVED}. The API validates that \texttt{resolutionDetails} is non-empty, stops the resolution SLA timer, marks \texttt{resolved\_at}, and dispatches an alert notifying the reporting employee.
@@ -1585,8 +1595,8 @@ Once an incident is assigned, the assigned technician accesses their operational
 Figure~\ref{fig:wf_sla_sequence} depicts the automated 60-second SLA monitoring cycle.
 
 \begin{figure}[H]
-\centering
-\begin{tikzpicture}[
+\noindent\makebox[\textwidth][c]{\hspace*{-0.3cm}%
+\begin{tikzpicture}[scale=0.85, transform shape,
     node distance=1.5cm,
     font=\scriptsize,
     actor/.style={rectangle, draw=primaryblue, fill=primaryblue!10, rounded corners=2pt, minimum width=2.2cm, minimum height=0.6cm, align=center},
@@ -1617,6 +1627,7 @@ Figure~\ref{fig:wf_sla_sequence} depicts the automated 60-second SLA monitoring 
 \draw[msg] ($(ui)+(0,-4.9)$) -- node[above] {Poll count / Display warning popup} ($(notif)+(0,-4.9)$);
 
 \end{tikzpicture}
+}
 \caption{Proactive SLA Monitoring, Warning Generation, and Toast Alert Escalation}
 \label{fig:wf_sla_sequence}
 \end{figure}
@@ -1719,22 +1730,22 @@ The automated test suite contains exactly \textbf{273 automated test cases}, exe
 
 \begin{table}[H]
 \centering
-\small
+\scriptsize
 \caption{Automated Test Suite Distribution and Execution Metrics}
 \label{tab:test_distribution}
-\begin{tabular}{p{4.5cm}p{3.5cm}p{2.0cm}p{3.5cm}}
+\begin{tabular}{p{4.0cm}p{4.2cm}p{1.8cm}p{3.5cm}}
 \toprule
 \textbf{Test Category / Module Scope} & \textbf{Test Suite File} & \textbf{Tests Passed} & \textbf{Pass Rate \& Status} \\
 \midrule
-\textbf{M1: Identity \& Platform} & \texttt{test\_auth\_and\_platform\_api.py}, \texttt{test\_auth\_hardening.py} & 45 & 100\% (45/45 Passed) \\
+\textbf{M1: Identity \& Platform} & \path{test_auth_and_platform_api.py}, \path{test_auth_hardening.py} & 45 & 100\% (45/45 Passed) \\
 \addlinespace
-\textbf{M2: Incident Lifecycle} & \texttt{test\_incidents\_api.py}, \texttt{test\_incident\_domain.py} & 78 & 100\% (78/78 Passed) \\
+\textbf{M2: Incident Lifecycle} & \path{test_incidents_api.py}, \path{test_incident_domain.py} & 78 & 100\% (78/78 Passed) \\
 \addlinespace
-\textbf{M3: Technician Assignment} & \texttt{test\_technicians\_api.py}, \texttt{test\_promoted\_technicians.py} & 68 & 100\% (68/68 Passed) \\
+\textbf{M3: Technician Assignment} & \path{test_technicians_api.py}, \path{test_promoted_technicians.py} & 68 & 100\% (68/68 Passed) \\
 \addlinespace
-\textbf{M4: SLA, Audit \& Notif} & \texttt{test\_sla\_api.py}, \texttt{test\_notifications\_sla\_audit.py} & 54 & 100\% (54/54 Passed) \\
+\textbf{M4: SLA, Audit \& Notif} & \path{test_sla_api.py}, \path{test_notifications_sla_audit.py} & 54 & 100\% (54/54 Passed) \\
 \addlinespace
-\textbf{Cross-Module Integration} & \texttt{test\_assignment\_concurrency.py}, \texttt{conftest.py} & 28 & 100\% (28/28 Passed) \\
+\textbf{Cross-Module Integration} & \path{test_assignment_concurrency.py}, \texttt{conftest.py} & 28 & 100\% (28/28 Passed) \\
 \midrule
 \textbf{Total Test Suite Execution} & \textbf{All 27 Test Files} & \textbf{273} & \textbf{100\% Passed in 3.78s} \\
 \bottomrule
