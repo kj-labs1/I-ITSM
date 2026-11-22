@@ -333,7 +333,8 @@ For comprehensive technical specifications, please consult the dedicated documen
 - [Module Documentation](file:///Users/wonderer/Desktop/I-ITSM/docs/MODULE_DOCUMENTATION.md) — Deep-dive into Modules M1, M2, M3, and M4 responsibilities.
 - [Testing & Quality Verification](file:///Users/wonderer/Desktop/I-ITSM/docs/TESTING.md) — Automated test suite (273 tests), offline harness, and CI matrix.
 - [Frontend Application Specification](file:///Users/wonderer/Desktop/I-ITSM/frontend/README.md) — React 18 architecture, state management, and error handling.
-- [Final Academic Project Report](file:///Users/wonderer/Desktop/I-ITSM/I-ITSM_Final_Project_Report.pdf) — Comprehensive 71-page academic final report in PDF format.
+- [Final Academic Project Report (PDF)](file:///Users/wonderer/Desktop/I-ITSM/docs/final-report/I-ITSM_Final_Project_Report.pdf) — Comprehensive 73-page academic final report in PDF format.
+- [Final Academic Project Report (LaTeX Source)](file:///Users/wonderer/Desktop/I-ITSM/docs/final-report/I-ITSM_Final_Project_Report.tex) — Complete editable LaTeX source.
 
 ---
 
